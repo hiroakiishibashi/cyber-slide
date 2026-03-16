@@ -1,0 +1,18 @@
+{
+  "advertisement": {
+    "useBuiltInErrorPopup": true,
+    "interstitial": {
+      "preloadOnStart": true
+    }
+  },
+  "sendAnalyticsEvents": true,
+  "forciblySetPlatformId": "playgama",
+  "disableLoadingLogo": true,
+  "showFullLoadingLogo": true,
+  "device": {
+    "supportedOrientations": [
+      "landscape",
+      "portrait"
+    ]
+  }
+}
