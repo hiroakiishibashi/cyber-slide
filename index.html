@@ -1148,20 +1148,21 @@
         
         async function triggerGameOver() {
             isGameOver = true; isProcessing = true; stopBGM(); speak("Game Over");
-            showInterstitialAd();
             const blocksToDestroy = [...allBlocks].sort(() => Math.random() - 0.5);
             for(let i = 0; i < blocksToDestroy.length; i++) {
                 const b = blocksToDestroy[i]; spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 15); b.visible = false;
-                await new Promise(r => safeTimeout(r, 80)); 
+                await new Promise(r => safeTimeout(r, 80));
             }
-            setCinematicGlass(true); 
-            await new Promise(r => safeTimeout(r, 1500)); 
+            setCinematicGlass(true);
+            await new Promise(r => safeTimeout(r, 1500));
             const overlay = document.getElementById('game-over-overlay');
             overlay.style.display = 'flex';
             const txt = document.getElementById('game-over-text');
             const btns = document.getElementById('game-over-buttons');
             txt.style.opacity = 1; txt.style.transform = 'translateY(0)';
             btns.style.opacity = 1;
+            // Show interstitial during the natural pause (game over screen is visible)
+            showInterstitialAd();
         }
 
         function retryStage() {
@@ -1205,12 +1206,11 @@
             const startTurns = remainingTurns;
             
             if(isCampaignMode) { saveProgress(currentStage + 1); }
-            showInterstitialAd();
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
-            
+
             showStageBanner(0, "TIME BONUS", `+${turnBonus} PTS`, "special"); speak("Bonus");
-            
+
             const animateScoreBonus = async () => {
                 const duration = 2000; const st = performance.now();
                 const scoreEl = document.getElementById('score-val');
@@ -1218,18 +1218,21 @@
                 while (true) {
                     const now = performance.now(); const progress = Math.min((now - st) / duration, 1);
                     if (scoreEl) scoreEl.innerText = Math.floor(startScore + (turnBonus * progress));
-                    if (turnEl) turnEl.innerText = Math.floor(startTurns * (1 - progress)); 
+                    if (turnEl) turnEl.innerText = Math.floor(startTurns * (1 - progress));
                     if (progress >= 1) break; await new Promise(r => requestAnimationFrame(r));
                 }
             };
-            await animateScoreBonus(); 
+            await animateScoreBonus();
 
-            setCinematicGlass(true); 
+            setCinematicGlass(true);
             await new Promise(r => safeTimeout(r, 1000));
 
-            msg.style.display='flex'; msg.style.opacity = 1; 
-            setTimeout(()=> { txt.style.opacity=1; txt.style.transform='translateY(0)'; }, 300); 
-            setTimeout(()=>sub.style.opacity=1, 800); 
+            msg.style.display='flex'; msg.style.opacity = 1;
+            setTimeout(()=> { txt.style.opacity=1; txt.style.transform='translateY(0)'; }, 300);
+            setTimeout(()=>sub.style.opacity=1, 800);
+
+            // Show interstitial during the natural pause (stage clear screen is visible)
+            showInterstitialAd();
 
             await new Promise(r=>setTimeout(r,4000));
             msg.style.opacity=0; 
