@@ -6,9 +6,6 @@
     }
   },
   "sendAnalyticsEvents": true,
-  "forciblySetPlatformId": "playgama",
-  "disableLoadingLogo": true,
-  "showFullLoadingLogo": true,
   "device": {
     "supportedOrientations": [
       "landscape",
