@@ -460,6 +460,7 @@
         let maxUnlockedStage = 1;
         let stageDataArray = null;
         let isBridgeStorageAvailable = false;
+        let editorTestMode = false;
 
         // --- Playgama SDK Integration ---
         function initSDK() {
@@ -500,6 +501,17 @@
         }
 
         async function loadStageData() {
+            // Editor test override: stage editor injects a single test stage via localStorage
+            const testOverride = localStorage.getItem('cyberslide_editor_test');
+            if (testOverride) {
+                try {
+                    stageDataArray = [JSON.parse(testOverride)];
+                    editorTestMode = true;
+                    maxUnlockedStage = 1;
+                    localStorage.removeItem('cyberslide_editor_test');
+                    return;
+                } catch(e) {}
+            }
             try {
                 const res = await fetch('stages.json');
                 const data = await res.json();
@@ -1344,6 +1356,7 @@
             document.getElementById('stage-select-menu').style.display='none';
 
             const saved = await loadProgress();
+            if (editorTestMode) { editorTestMode = false; isCampaignMode = true; currentStage = 1; launchGame(); return; }
             const diff = calculateStageDifficulty(saved); const visuals = generateVisuals(saved); applyVisuals(visuals);
             GRID_W = diff.w; GRID_H = diff.h; validGrid = diff.map || []; if(!validGrid.length) for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; }
             activeColors = visuals.palette.slice(0, diff.colors);

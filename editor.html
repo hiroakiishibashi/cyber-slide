@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cyber Slide — Stage Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #08080f; color: #c0c8ff;
+  font-family: 'Courier New', monospace; font-size: 12px;
+  height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ── HEADER ── */
+#header {
+  background: #10101e; border-bottom: 1px solid #1e1e3a;
+  padding: 7px 12px; display: flex; align-items: center;
+  gap: 10px; flex-shrink: 0; flex-wrap: wrap;
+}
+#header h1 { font-size: 13px; letter-spacing: 3px; color: #00e5ff; white-space: nowrap; }
+.sep { color: #2a2a4a; }
+
+/* ── MAIN ── */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ── LEFT PANEL ── */
+#left-panel {
+  width: 290px; flex-shrink: 0; background: #0c0c18;
+  border-right: 1px solid #1e1e3a; overflow-y: auto; padding: 10px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.section-title {
+  font-size: 9px; letter-spacing: 2px; color: #00e5ff;
+  border-bottom: 1px solid #1a2540; padding-bottom: 4px; margin-bottom: 8px;
+}
+
+/* ── GRID ── */
+#grid-wrap { display: flex; flex-direction: column; gap: 6px; }
+#grid-container {
+  display: grid; grid-template-columns: repeat(8, 28px);
+  gap: 2px; user-select: none;
+}
+.gc {
+  width: 28px; height: 28px; border-radius: 3px;
+  cursor: pointer; transition: background 0.08s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: transparent;
+}
+.gc.active  { background: #0099bb; box-shadow: 0 0 5px #0099bb88; }
+.gc.inactive{ background: #18182a; border: 1px solid #252540; }
+.gc.isolated{ background: #cc3333; box-shadow: 0 0 5px #cc333388; }
+.gc.oob     { background: #080810; cursor: default; opacity: 0.25; }
+
+/* ── FORMS ── */
+.row {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 6px; margin-bottom: 5px;
+}
+.row span { flex: 1; color: #9090b0; }
+input[type=number] {
+  background: #18182a; border: 1px solid #303050;
+  color: #c0c8ff; padding: 3px 6px; width: 62px;
+  border-radius: 3px; font-family: inherit; font-size: 12px;
+}
+input[type=number]:focus { outline: none; border-color: #00e5ff; }
+input[type=color] {
+  width: 38px; height: 22px; border: none;
+  border-radius: 3px; cursor: pointer; padding: 0; background: none;
+}
+select {
+  background: #18182a; border: 1px solid #303050; color: #c0c8ff;
+  padding: 3px 6px; border-radius: 3px; font-family: inherit; font-size: 12px;
+  width: 100px;
+}
+select:focus { outline: none; border-color: #00e5ff; }
+
+/* ── BUTTONS ── */
+.btn {
+  background: #18182a; border: 1px solid #303050; color: #9090b0;
+  padding: 4px 10px; border-radius: 3px; cursor: pointer;
+  font-family: inherit; font-size: 11px; white-space: nowrap;
+}
+.btn:hover { background: #22223a; border-color: #00e5ff; color: #00e5ff; }
+.btn.primary { border-color: #00e5ff; color: #00e5ff; background: #002233; }
+.btn.primary:hover { background: #003344; }
+.btn.success { border-color: #00cc44; color: #00cc44; background: #002200; }
+.btn.success:hover { background: #003300; }
+.btn.danger  { border-color: #ff4444; color: #ff4444; background: #220000; }
+.btn.danger:hover  { background: #330000; }
+
+/* ── STATUS / PALETTE ── */
+#cell-status { font-size: 11px; padding: 3px 0; }
+#cell-status.warn  { color: #ffaa00; }
+#cell-status.ok    { color: #00cc44; }
+#palette-swatches  { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; }
+.swatch { width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── RIGHT PANEL ── */
+#right-panel { flex: 1; position: relative; overflow: hidden; background: #050508; }
+#preview-canvas { display: block; }
+
+/* ── OVERLAYS ── */
+#preview-info {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(0,0,0,0.65); border: 1px solid #1e1e3a;
+  border-radius: 6px; padding: 8px 12px; font-size: 11px;
+  line-height: 2; pointer-events: none;
+}
+#preview-info .v { color: #00e5ff; }
+#shortcut-hint {
+  position: absolute; bottom: 10px; right: 10px;
+  background: rgba(0,0,0,0.5); border: 1px solid #1a1a30;
+  border-radius: 6px; padding: 8px 12px; font-size: 10px;
+  line-height: 2; color: #444; pointer-events: none;
+}
+#shortcut-hint b { color: #666; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #18182a; border: 1px solid #00e5ff; color: #00e5ff;
+  padding: 7px 20px; border-radius: 6px; font-size: 13px;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+}
+#toast.show { opacity: 1; }
+#toast.ok   { border-color: #00cc44; color: #00cc44; }
+#toast.warn { border-color: #ffaa00; color: #ffaa00; }
+#toast.err  { border-color: #ff4444; color: #ff4444; }
+
+/* ── DIRTY DOT ── */
+#dirty { color: #ffaa00; display: none; }
+#dirty.on { display: inline; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0c0c18; }
+::-webkit-scrollbar-thumb { background: #252540; border-radius: 3px; }
+
+#stage-num-input { width: 52px; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div id="header">
+  <h1>⬡ STAGE EDITOR</h1>
+  <span class="sep">|</span>
+  <button class="btn" onclick="document.getElementById('file-input').click()">📂 Load stages.json</button>
+  <input type="file" id="file-input" accept=".json" style="display:none" onchange="onFileLoad(event)">
+  <button class="btn success" onclick="exportJSON()">📤 Export stages.json</button>
+  <span class="sep">|</span>
+  <button class="btn" onclick="changeStage(-1)">◀</button>
+  <input type="number" id="stage-num-input" class="btn" min="1" max="300" value="1"
+    onchange="selectStage(parseInt(this.value))" onkeydown="if(event.key==='Enter')selectStage(parseInt(this.value))">
+  <span id="stage-total" style="color:#444; white-space:nowrap;">/ 0</span>
+  <button class="btn" onclick="changeStage(1)">▶</button>
+  <span class="sep">|</span>
+  <button class="btn primary" onclick="saveStage()">💾 Save Stage</button>
+  <span id="dirty" class="on">●</span>
+  <button class="btn" onclick="testPlay()">▶ Test Play</button>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div id="main">
+
+  <!-- ── LEFT PANEL ── -->
+  <div id="left-panel">
+
+    <!-- BOARD SHAPE -->
+    <div>
+      <div class="section-title">BOARD SHAPE</div>
+      <div class="row"><span>Width (2–8)</span>
+        <input type="number" id="board-w" min="2" max="8" value="5" onchange="onDimChange()">
+      </div>
+      <div class="row"><span>Height (2–8)</span>
+        <input type="number" id="board-h" min="2" max="8" value="3" onchange="onDimChange()">
+      </div>
+      <div id="grid-wrap">
+        <div id="grid-container"></div>
+        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+          <button class="btn" onclick="fillAll()">Fill All</button>
+          <button class="btn danger" onclick="clearAll()">Clear All</button>
+        </div>
+        <div id="cell-status" class="ok">Active: 0 cells</div>
+      </div>
+    </div>
+
+    <!-- DIFFICULTY -->
+    <div>
+      <div class="section-title">DIFFICULTY</div>
+      <div class="row"><span>Colors (2–5)</span>
+        <input type="number" id="colors" min="2" max="5" value="2" onchange="markDirty()">
+      </div>
+      <div class="row"><span>Spawn Amount</span>
+        <input type="number" id="spawn" min="1" max="4" value="1" onchange="markDirty()">
+      </div>
+      <div class="row"><span>Spawn Rate (turns)</span>
+        <input type="number" id="spawnRate" min="1" max="30" value="5" onchange="markDirty()">
+      </div>
+      <div class="row"><span>Target Cores</span>
+        <input type="number" id="cores" min="1" max="100" value="1" onchange="markDirty()">
+      </div>
+      <div class="row"><span>Obstacle Rate (0=off)</span>
+        <input type="number" id="obstacles" min="0" max="20" value="0" onchange="markDirty()">
+      </div>
+      <div class="row"><span>Turn Limit</span>
+        <input type="number" id="turns" min="5" max="200" value="20" onchange="markDirty()">
+      </div>
+    </div>
+
+    <!-- VISUALS -->
+    <div>
+      <div class="section-title">VISUALS</div>
+      <div class="row"><span>Theme</span>
+        <select id="theme" onchange="markDirty()">
+          <option>NEON</option><option>GLASS</option>
+          <option>MATTE</option><option>RETRO</option><option>METAL</option>
+        </select>
+      </div>
+      <div class="row"><span>Palette (0–4)</span>
+        <input type="number" id="palette" min="0" max="4" value="0"
+          onchange="markDirty(); updatePaletteSwatches()">
+      </div>
+      <div id="palette-swatches"></div>
+      <div class="row" style="margin-top:6px;"><span>BG Color</span>
+        <input type="color" id="bg-color" value="#1f0a0a" onchange="markDirty(); updatePreview()">
+      </div>
+      <div class="row"><span>Grid Color</span>
+        <input type="color" id="grid-color" value="#f53d3d" onchange="markDirty(); updatePreview()">
+      </div>
+      <div class="row"><span>Plane Color</span>
+        <input type="color" id="plane-color" value="#321b1b" onchange="markDirty(); updatePreview()">
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- ── RIGHT PANEL (Three.js preview) ── -->
+  <div id="right-panel">
+    <canvas id="preview-canvas"></canvas>
+
+    <div id="preview-info">
+      Stage <span id="pi-stage" class="v">-</span><br>
+      Board <span id="pi-board" class="v">-</span><br>
+      Cells <span id="pi-cells" class="v">-</span> &nbsp; Isolated <span id="pi-iso" class="v">0</span><br>
+      Theme <span id="pi-theme" class="v">-</span> &nbsp; Palette <span id="pi-pal" class="v">-</span>
+    </div>
+
+    <div id="shortcut-hint">
+      <b>← →</b> Navigate stages<br>
+      <b>S</b> Save stage &nbsp;<b>T</b> Test play<br>
+      <b>F</b> Fill all &nbsp;<b>C</b> Clear all<br>
+      <b>Drag</b> Orbit &nbsp;<b>Wheel</b> Zoom
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════
+const PALETTES = [
+  [0xFF3333,0x3388FF,0x00E080,0xFFCC00,0x9900FF,0xFF8800],
+  [0xFF0088,0x00E5FF,0x88FF00,0xFFAA00,0x5500FF,0xFF2200],
+  [0x00FFFF,0x0044FF,0x00FF66,0xFF00CC,0xFFFF88,0xFF0000],
+  [0xFF8800,0xCC0033,0xFFD700,0x00CC44,0x9900FF,0x0088FF],
+  [0xFFCC00,0x66FF00,0x00FFCC,0x0088FF,0xAA00FF,0xFF0066],
+];
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let stages = [];
+let currentIdx = 0;
+let boardMap = [];   // boardMap[x][z] = bool, 8×8
+
+function resetBoardMap() {
+  boardMap = [];
+  for (let x = 0; x < 8; x++) {
+    boardMap[x] = [];
+    for (let z = 0; z < 8; z++) boardMap[x][z] = false;
+  }
+}
+resetBoardMap();
+
+// ════════════════════════════════════════════════
+// FILE I/O
+// ════════════════════════════════════════════════
+function onFileLoad(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      stages = data.stages;
+      document.getElementById('stage-total').textContent = '/ ' + stages.length;
+      selectStage(1);
+      toast('Loaded ' + stages.length + ' stages.');
+    } catch(err) {
+      toast('Error: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function exportJSON() {
+  if (!stages.length) { toast('No stages loaded.', 'err'); return; }
+  const json = JSON.stringify({ stages }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'stages.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Exported stages.json (' + stages.length + ' stages)', 'ok');
+}
+
+async function tryAutoLoad() {
+  try {
+    const res  = await fetch('stages.json');
+    if (!res.ok) throw 0;
+    const data = await res.json();
+    stages = data.stages;
+    document.getElementById('stage-total').textContent = '/ ' + stages.length;
+    selectStage(1);
+    toast('Auto-loaded stages.json (' + stages.length + ' stages)');
+  } catch(e) {
+    toast('📂 Load stages.json をクリックしてファイルを開いてください', 'warn');
+  }
+}
+
+// ════════════════════════════════════════════════
+// STAGE NAVIGATION
+// ════════════════════════════════════════════════
+function changeStage(delta) {
+  if (!stages.length) return;
+  selectStage(currentIdx + 1 + delta);
+}
+
+function selectStage(n) {
+  if (!stages.length) return;
+  n = Math.max(1, Math.min(stages.length, parseInt(n) || 1));
+  currentIdx = n - 1;
+  document.getElementById('stage-num-input').value = n;
+  loadStageToEditor(stages[currentIdx]);
+  setDirty(false);
+}
+
+// ════════════════════════════════════════════════
+// EDITOR ↔ DATA
+// ════════════════════════════════════════════════
+function loadStageToEditor(sd) {
+  const w = clamp(sd.w || 5, 2, 8);
+  const h = clamp(sd.h || 3, 2, 8);
+  document.getElementById('board-w').value = w;
+  document.getElementById('board-h').value = h;
+
+  resetBoardMap();
+  (sd.map || []).forEach((row, z) => {
+    for (let x = 0; x < row.length && x < 8; x++)
+      if (row[x] === '1') boardMap[x][z] = true;
+  });
+
+  setV('colors',    sd.colors    ?? 2);
+  setV('spawn',     sd.spawn     ?? 1);
+  setV('spawnRate', sd.spawnRate ?? 5);
+  setV('cores',     sd.cores     ?? 1);
+  setV('obstacles', sd.obstacles ?? 0);
+  setV('turns',     sd.turns     ?? 20);
+  setV('theme',     sd.theme     || 'NEON');
+  setV('palette',   sd.palette   ?? 0);
+  document.getElementById('bg-color').value    = '#' + (sd.bg    || '1f0a0a');
+  document.getElementById('grid-color').value  = '#' + (sd.grid  || 'f53d3d');
+  document.getElementById('plane-color').value = '#' + (sd.plane || '321b1b');
+
+  updatePaletteSwatches();
+  renderGrid();
+  updatePreview();
+}
+
+function readStageFromEditor() {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  const mapRows = [];
+  for (let z = 0; z < h; z++) {
+    let row = '';
+    for (let x = 0; x < w; x++) row += boardMap[x][z] ? '1' : '0';
+    mapRows.push(row);
+  }
+  return {
+    id:        currentIdx + 1,
+    w, h, map: mapRows,
+    colors:    clamp(intV('colors'), 2, 5),
+    spawn:     clamp(intV('spawn'), 1, 4),
+    spawnRate: clamp(intV('spawnRate'), 1, 30),
+    cores:     clamp(intV('cores'), 1, 200),
+    obstacles: clamp(intV('obstacles'), 0, 20),
+    turns:     clamp(intV('turns'), 5, 200),
+    theme:     document.getElementById('theme').value,
+    palette:   clamp(intV('palette'), 0, 4),
+    bg:        document.getElementById('bg-color').value.slice(1),
+    grid:      document.getElementById('grid-color').value.slice(1),
+    plane:     document.getElementById('plane-color').value.slice(1),
+  };
+}
+
+function saveStage() {
+  if (!stages.length) { toast('No stages loaded.', 'err'); return; }
+  stages[currentIdx] = readStageFromEditor();
+  setDirty(false);
+  toast('Stage ' + (currentIdx + 1) + ' saved!', 'ok');
+}
+
+function markDirty() { setDirty(true); }
+function setDirty(v) {
+  const el = document.getElementById('dirty');
+  el.className = v ? 'on' : '';
+}
+
+// ════════════════════════════════════════════════
+// GRID EDITOR
+// ════════════════════════════════════════════════
+let isPainting = false;
+let paintVal   = true;
+
+function renderGrid() {
+  const w   = clamp(intV('board-w'), 2, 8);
+  const h   = clamp(intV('board-h'), 2, 8);
+  const iso = isolatedCells(w, h);
+  const container = document.getElementById('grid-container');
+  container.innerHTML = '';
+  let active = 0;
+
+  for (let z = 0; z < 8; z++) {
+    for (let x = 0; x < 8; x++) {
+      const cell = document.createElement('div');
+      const inB  = x < w && z < h;
+
+      if (!inB) {
+        cell.className = 'gc oob';
+      } else {
+        const on  = boardMap[x][z];
+        const isoCell = on && iso.some(c => c[0] === x && c[1] === z);
+        cell.className = 'gc ' + (isoCell ? 'isolated' : on ? 'active' : 'inactive');
+        if (on) active++;
+
+        // Paint events
+        const _x = x, _z = z;
+        cell.addEventListener('mousedown', e => {
+          e.preventDefault();
+          paintVal = !boardMap[_x][_z];
+          toggleCell(_x, _z, paintVal);
+          isPainting = true;
+        });
+        cell.addEventListener('mouseover', () => {
+          if (isPainting) toggleCell(_x, _z, paintVal);
+        });
+      }
+      container.appendChild(cell);
+    }
+  }
+
+  window.addEventListener('mouseup', () => { isPainting = false; }, { once: true });
+
+  const statusEl = document.getElementById('cell-status');
+  if (iso.length > 0) {
+    statusEl.textContent = `Active: ${active} | ⚠ ${iso.length} isolated cell(s) — blocks get stuck!`;
+    statusEl.className = 'warn';
+  } else {
+    statusEl.textContent = `Active: ${active} cells`;
+    statusEl.className = 'ok';
+  }
+
+  updatePreviewInfo();
+}
+
+function toggleCell(x, z, val) {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  if (x >= w || z >= h) return;
+  boardMap[x][z] = val !== undefined ? val : !boardMap[x][z];
+  renderGrid(); updatePreview(); markDirty();
+}
+
+function fillAll() {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  for (let x = 0; x < w; x++) for (let z = 0; z < h; z++) boardMap[x][z] = true;
+  renderGrid(); updatePreview(); markDirty();
+}
+
+function clearAll() {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  for (let x = 0; x < w; x++) for (let z = 0; z < h; z++) boardMap[x][z] = false;
+  renderGrid(); updatePreview(); markDirty();
+}
+
+function onDimChange() {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  document.getElementById('board-w').value = w;
+  document.getElementById('board-h').value = h;
+  renderGrid(); updatePreview(); markDirty();
+}
+
+function isolatedCells(w, h) {
+  const iso = [];
+  for (let x = 0; x < w; x++) {
+    for (let z = 0; z < h; z++) {
+      if (!boardMap[x][z]) continue;
+      const nbr = [[x-1,z],[x+1,z],[x,z-1],[x,z+1]]
+        .filter(([nx,nz]) => nx>=0&&nx<w&&nz>=0&&nz<h&&boardMap[nx][nz]);
+      if (nbr.length === 0) iso.push([x,z]);
+    }
+  }
+  return iso;
+}
+
+// ════════════════════════════════════════════════
+// PALETTE SWATCHES
+// ════════════════════════════════════════════════
+function updatePaletteSwatches() {
+  const idx = clamp(intV('palette'), 0, 4);
+  const el  = document.getElementById('palette-swatches');
+  el.innerHTML = '';
+  PALETTES[idx].forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.style.background = '#' + c.toString(16).padStart(6, '0');
+    el.appendChild(s);
+  });
+}
+
+// ════════════════════════════════════════════════
+// TEST PLAY
+// ════════════════════════════════════════════════
+function testPlay() {
+  const sd = readStageFromEditor();
+  localStorage.setItem('cyberslide_editor_test', JSON.stringify(sd));
+  window.open('./index.html', '_blank');
+  toast('Opening test play in new tab...', 'ok');
+}
+
+// ════════════════════════════════════════════════
+// THREE.JS PREVIEW
+// ════════════════════════════════════════════════
+let scene, camera, renderer, boardGroup;
+let orbit = { theta: 0.6, phi: 0.75, r: 13 };
+let mouse = { down: false, x: 0, y: 0 };
+
+function initThree() {
+  const panel  = document.getElementById('right-panel');
+  const canvas = document.getElementById('preview-canvas');
+  const W = panel.clientWidth, H = panel.clientHeight;
+
+  scene    = new THREE.Scene();
+  camera   = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+  dl.position.set(5, 12, 8); scene.add(dl);
+  const pl = new THREE.PointLight(0x00ccff, 0.6, 40);
+  pl.position.set(-5, 6, -4); scene.add(pl);
+
+  boardGroup = new THREE.Group();
+  scene.add(boardGroup);
+
+  // Mouse orbit
+  canvas.addEventListener('mousedown', e => {
+    mouse.down = true; mouse.x = e.clientX; mouse.y = e.clientY;
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!mouse.down) return;
+    orbit.theta -= (e.clientX - mouse.x) * 0.009;
+    orbit.phi    = Math.max(0.12, Math.min(1.45, orbit.phi - (e.clientY - mouse.y) * 0.009));
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    syncCamera();
+  });
+  canvas.addEventListener('mouseup',    () => mouse.down = false);
+  canvas.addEventListener('mouseleave', () => mouse.down = false);
+  canvas.addEventListener('wheel', e => {
+    orbit.r = Math.max(4, Math.min(28, orbit.r + e.deltaY * 0.02));
+    syncCamera();
+  });
+
+  window.addEventListener('resize', () => {
+    const W = panel.clientWidth, H = panel.clientHeight;
+    camera.aspect = W / H; camera.updateProjectionMatrix();
+    renderer.setSize(W, H);
+  });
+
+  syncCamera();
+  (function loop() { requestAnimationFrame(loop); render3D(); })();
+}
+
+function syncCamera() {
+  const { theta, phi, r } = orbit;
+  camera.position.set(
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.cos(theta)
+  );
+  camera.lookAt(0, 0, 0);
+}
+
+function render3D() {
+  if (!mouse.down) {          // auto-rotate when idle
+    orbit.theta += 0.004;
+    syncCamera();
+  }
+  renderer.render(scene, camera);
+}
+
+function updatePreview() {
+  if (!scene) return;
+
+  // Clear
+  while (boardGroup.children.length) {
+    const o = boardGroup.children[0];
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) { if (Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); }
+    boardGroup.remove(o);
+  }
+
+  const w      = clamp(intV('board-w'), 2, 8);
+  const h      = clamp(intV('board-h'), 2, 8);
+  const bgHex  = hexInt('bg-color');
+  const grdHex = hexInt('grid-color');
+  const plnHex = hexInt('plane-color');
+
+  scene.background = new THREE.Color(bgHex);
+  scene.fog         = new THREE.FogExp2(bgHex, 0.035);
+
+  const ox = -(w - 1) / 2;
+  const oz = -(h - 1) / 2;
+  const iso = isolatedCells(w, h);
+
+  for (let x = 0; x < w; x++) {
+    for (let z = 0; z < h; z++) {
+      if (!boardMap[x][z]) continue;
+
+      const isIso = iso.some(c => c[0]===x && c[1]===z);
+      const tileColor = isIso ? 0x882222 : plnHex;
+      const edgeColor = isIso ? 0xff4444 : grdHex;
+
+      // Tile
+      const geo  = new THREE.BoxGeometry(0.94, 0.16, 0.94);
+      const mat  = new THREE.MeshStandardMaterial({
+        color: tileColor, emissive: tileColor, emissiveIntensity: 0.12,
+        roughness: 0.5, metalness: 0.3
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(ox + x, 0, oz + z);
+      boardGroup.add(mesh);
+
+      // Edge glow
+      const eg  = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.94, 0.18, 0.94));
+      const em  = new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: 0.85 });
+      const el  = new THREE.LineSegments(eg, em);
+      el.position.set(ox + x, 0, oz + z);
+      boardGroup.add(el);
+    }
+  }
+
+  // Show palette sample blocks above board (first `colors` colors)
+  const palIdx = clamp(intV('palette'), 0, 4);
+  const nColors = clamp(intV('colors'), 2, 5);
+  const palette = PALETTES[palIdx];
+  for (let i = 0; i < nColors && i < palette.length; i++) {
+    const bg  = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+    const bm  = new THREE.MeshStandardMaterial({
+      color: palette[i], emissive: palette[i], emissiveIntensity: 0.6,
+      roughness: 0.3, metalness: 0.5
+    });
+    const bk  = new THREE.Mesh(bg, bm);
+    const bx  = ox + i * 0.7 - (nColors - 1) * 0.35;
+    bk.position.set(bx, 0.6, oz - 0.8);
+    boardGroup.add(bk);
+  }
+
+  updatePreviewInfo();
+}
+
+function updatePreviewInfo() {
+  const w = clamp(intV('board-w'), 2, 8);
+  const h = clamp(intV('board-h'), 2, 8);
+  let active = 0;
+  for (let x = 0; x < w; x++) for (let z = 0; z < h; z++) if (boardMap[x][z]) active++;
+  const iso = isolatedCells(w, h);
+
+  document.getElementById('pi-stage').textContent = stages.length ? currentIdx + 1 : '-';
+  document.getElementById('pi-board').textContent = w + ' × ' + h;
+  document.getElementById('pi-cells').textContent = active + ' / ' + (w * h);
+  document.getElementById('pi-iso').textContent   = iso.length;
+  document.getElementById('pi-theme').textContent = document.getElementById('theme').value;
+  document.getElementById('pi-pal').textContent   = intV('palette');
+  document.getElementById('pi-iso').style.color   = iso.length > 0 ? '#ff4444' : '#00e5ff';
+}
+
+// ════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); changeStage(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); changeStage(1); }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); saveStage(); }
+  if (e.key === 't' || e.key === 'T') { e.preventDefault(); testPlay(); }
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); fillAll(); }
+  if (e.key === 'c' || e.key === 'C') { e.preventDefault(); clearAll(); }
+});
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 2800);
+}
+
+// ════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, isNaN(v) ? lo : v)); }
+function intV(id)   { return parseInt(document.getElementById(id).value) || 0; }
+function setV(id,v) { document.getElementById(id).value = v; }
+function hexInt(id) { return parseInt(document.getElementById(id).value.slice(1), 16); }
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+initThree();
+renderGrid();
+updatePaletteSwatches();
+updatePreview();
+tryAutoLoad();
+</script>
+</body>
+</html>
