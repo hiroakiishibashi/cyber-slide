@@ -147,9 +147,10 @@ select:focus { outline: none; border-color: #00e5ff; }
 <div id="header">
   <h1>⬡ STAGE EDITOR</h1>
   <span class="sep">|</span>
-  <button class="btn" onclick="document.getElementById('file-input').click()">📂 Load stages.json</button>
-  <input type="file" id="file-input" accept=".json" style="display:none" onchange="onFileLoad(event)">
-  <button class="btn success" onclick="exportJSON()">📤 Export stages.json</button>
+  <button class="btn" onclick="loadFile()">📂 Load stages.json</button>
+  <input type="file" id="file-input" accept=".json" style="display:none" onchange="onFileInputChange(event)">
+  <button class="btn success" onclick="exportJSON()">💾 Save stages.json</button>
+  <span id="save-hint" style="font-size:10px; color:#444; display:none;">（上書き保存モード）</span>
   <span class="sep">|</span>
   <button class="btn" onclick="changeStage(-1)">◀</button>
   <input type="number" id="stage-num-input" class="btn" min="1" max="300" value="1"
@@ -294,17 +295,50 @@ resetBoardMap();
 // ════════════════════════════════════════════════
 // FILE I/O
 // ════════════════════════════════════════════════
-function onFileLoad(evt) {
+let stagesFileHandle = null; // File System Access API handle (Chrome/Edge)
+
+// JSON解析・ステージ読み込み共通処理
+function processJSON(text) {
+  const data = JSON.parse(text);
+  stages = data.stages;
+  document.getElementById('stage-total').textContent = '/ ' + stages.length;
+  selectStage(1);
+}
+
+// 📂 Load ボタン — File System Access API 対応 (Chrome) / input fallback (Safari)
+async function loadFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        multiple: false,
+      });
+      stagesFileHandle = handle;
+      document.getElementById('save-hint').style.display = 'inline';
+      const file = await handle.getFile();
+      const text = await file.text();
+      processJSON(text);
+      toast('Loaded ' + stages.length + ' stages. 💾 上書き保存モード有効', 'ok');
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // キャンセル
+      // File System Access 非対応環境 → フォールバック
+    }
+  }
+  document.getElementById('file-input').click();
+}
+
+// <input type=file> フォールバック (Safari など)
+function onFileInputChange(evt) {
   const file = evt.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const data = JSON.parse(e.target.result);
-      stages = data.stages;
-      document.getElementById('stage-total').textContent = '/ ' + stages.length;
-      selectStage(1);
-      toast('Loaded ' + stages.length + ' stages.');
+      processJSON(e.target.result);
+      stagesFileHandle = null; // Safari では直接上書き不可
+      document.getElementById('save-hint').style.display = 'none';
+      toast('Loaded ' + stages.length + ' stages.（Safariはダウンロード保存）');
     } catch(err) {
       toast('Error: ' + err.message, 'err');
     }
@@ -313,20 +347,60 @@ function onFileLoad(evt) {
   evt.target.value = '';
 }
 
-function exportJSON() {
+// 💾 Save/Export — 可能なら元ファイルに直接上書き、不可ならダウンロード
+async function exportJSON() {
   if (!stages.length) { toast('No stages loaded.', 'err'); return; }
   const json = JSON.stringify({ stages }, null, 2);
+
+  // ① 常に localStorage にキャッシュ保存（index.html の file:// フォールバック用）
+  try { localStorage.setItem('cyberslide_stages_cache', JSON.stringify({ stages })); } catch(e) {}
+
+  // ② File System Access API で元ファイルに直接上書き（Chrome で Load した場合）
+  if (stagesFileHandle) {
+    try {
+      const writable = await stagesFileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      toast('stages.json を上書き保存しました！', 'ok');
+      return;
+    } catch(e) {
+      stagesFileHandle = null;
+      document.getElementById('save-hint').style.display = 'none';
+      // パーミッション失効などの場合は以降の方法で保存
+    }
+  }
+
+  // ③ showSaveFilePicker で保存先を選択（Chrome で Load していない場合）
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'stages.json',
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      stagesFileHandle = handle;
+      document.getElementById('save-hint').style.display = 'inline';
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      toast('stages.json を保存しました！次回から上書き保存モード', 'ok');
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // ④ 最終フォールバック: ダウンロード（Safari / ローカルサーバー経由時）
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = 'stages.json'; a.click();
   URL.revokeObjectURL(url);
-  toast('Exported stages.json (' + stages.length + ' stages)', 'ok');
+  toast('stages.json をダウンロードしました（Cyber Slideフォルダに上書きしてください）', 'warn');
 }
 
 async function tryAutoLoad() {
   try {
-    const res  = await fetch('stages.json');
+    const res  = await fetch('stages.json?v=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw 0;
     const data = await res.json();
     stages = data.stages;

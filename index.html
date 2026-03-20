@@ -512,13 +512,27 @@
                     return;
                 } catch(e) {}
             }
+            // ① サーバー/ローカルファイルから fetch（Playgama CDN や HTTP サーバー上で動作）
             try {
                 const res = await fetch('stages.json?v=' + Date.now(), { cache: 'no-store' });
+                if (!res.ok) throw new Error('fetch failed');
                 const data = await res.json();
                 stageDataArray = data.stages;
-            } catch(e) {
-                console.warn('stages.json not found, using algorithmic generation');
-            }
+                return;
+            } catch(e) {}
+            // ② fetch 失敗時（file://直接起動など）: エディタの Export で保存した localStorage キャッシュを使用
+            try {
+                const cached = localStorage.getItem('cyberslide_stages_cache');
+                if (cached) {
+                    const data = JSON.parse(cached);
+                    if (data.stages && data.stages.length) {
+                        stageDataArray = data.stages;
+                        console.log('stages loaded from localStorage cache (' + stageDataArray.length + ' stages)');
+                        return;
+                    }
+                }
+            } catch(e) {}
+            console.warn('stages.json not found, using algorithmic generation');
         }
 
         async function loadProgress() {
