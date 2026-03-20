@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Slide: Production Edition v19</title>
+    <title>Cyber Slide: Production Edition v20</title>
     <!-- Playgama Bridge SDK (official CDN) -->
     <script src="https://bridge.playgama.com/v1/stable/playgama-bridge.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
@@ -267,7 +267,6 @@
             <div id="main-menu" class="menu-container">
                 <button id="btn-start-mission" class="btn-base">START MISSION</button>
                 <button id="btn-select-stage" class="btn-base">SELECT STAGE</button>
-                <button id="btn-goto-config" class="btn-base">SETTINGS</button>
             </div>
             <div id="stage-select-menu" class="menu-container" style="display:none;">
                 <div style="font-size: var(--font-m); font-weight:700;">SELECT STAGE</div>
@@ -299,8 +298,9 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v19</div>
+            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v20</div>
         </div>
+        <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
 
     <!-- HELP SCREEN -->
@@ -457,6 +457,7 @@
         let tiltOsc, tiltGain, tiltFilter, bgmInterval, beatCount = 0, stageSelectTimer = null;
         let isSoundMuted = false;
         let isAdPlaying = false;
+        let maxUnlockedStage = 1;
 
         // --- Playgama SDK Integration ---
         function initSDK() {
@@ -483,25 +484,29 @@
                 .catch(e => console.warn('Playgama Bridge init:', e));
         }
 
-        function saveProgress(stage) {
+        function saveProgress(clearedStage) {
+            const nextStage = clearedStage + 1;
+            if (nextStage <= maxUnlockedStage) return; // never regress
+            maxUnlockedStage = nextStage;
+            const strVal = String(maxUnlockedStage);
             if (typeof bridge !== 'undefined' && bridge.storage) {
-                bridge.storage.set(SAVE_KEY, String(stage))
-                    .catch(() => localStorage.setItem(SAVE_KEY, stage));
+                bridge.storage.set(SAVE_KEY, strVal)
+                    .catch(() => localStorage.setItem(SAVE_KEY, maxUnlockedStage));
             } else {
-                localStorage.setItem(SAVE_KEY, stage);
+                localStorage.setItem(SAVE_KEY, maxUnlockedStage);
             }
         }
 
         async function loadProgress() {
+            let val;
             if (typeof bridge !== 'undefined' && bridge.storage) {
-                try {
-                    const val = await bridge.storage.get(SAVE_KEY);
-                    return parseInt(val) || 1;
-                } catch(e) {
-                    return parseInt(localStorage.getItem(SAVE_KEY)) || 1;
-                }
+                try { val = await bridge.storage.get(SAVE_KEY); }
+                catch(e) { val = localStorage.getItem(SAVE_KEY); }
+            } else {
+                val = localStorage.getItem(SAVE_KEY);
             }
-            return parseInt(localStorage.getItem(SAVE_KEY)) || 1;
+            maxUnlockedStage = parseInt(val) || 1;
+            return maxUnlockedStage;
         }
 
         function showInterstitialAd() {
@@ -1215,7 +1220,7 @@
             const startScore = currentScore; currentScore += turnBonus;
             const startTurns = remainingTurns;
             
-            if(isCampaignMode) { saveProgress(currentStage + 1); }
+            if(isCampaignMode) { saveProgress(currentStage); }
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
 
@@ -1400,7 +1405,7 @@
             const sVolS = document.getElementById('sfx-volume'); for(let i=0; i<=100; i+=10) sVolS.add(new Option(`${i}%`, i, false, i===100)); 
 
             document.getElementById('btn-start-mission').addEventListener('click', startCampaign);
-            document.getElementById('btn-goto-config').addEventListener('click', showConfigMenu);
+            document.getElementById('dev-settings-btn').addEventListener('click', showConfigMenu);
             document.getElementById('btn-select-stage').addEventListener('click', showStageSelectMenu);
             
             document.getElementById('btn-back-menu').addEventListener('click', () => { document.getElementById('config-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
