@@ -456,19 +456,26 @@
         let audioCtx = null, masterGain = null, bgmGain = null;
         let tiltOsc, tiltGain, tiltFilter, bgmInterval, beatCount = 0, stageSelectTimer = null;
         let isSoundMuted = false;
+        let isAdPlaying = false;
 
         // --- Playgama SDK Integration ---
         function initSDK() {
             if (typeof bridge === 'undefined') return;
             bridge.initialize({})
                 .then(() => {
-                    // Mute audio when interstitial is open, restore when closed/failed
+                    // Pause game and mute all audio when interstitial is open, restore when closed/failed
                     bridge.advertisement.on('interstitial_state_changed', state => {
-                        if (!audioCtx || !masterGain) return;
                         if (state === 'opened') {
-                            masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                            isAdPlaying = true;
+                            if (window.speechSynthesis) window.speechSynthesis.cancel();
+                            if (audioCtx && masterGain) {
+                                masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                            }
                         } else if (state === 'closed' || state === 'failed') {
-                            masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+                            isAdPlaying = false;
+                            if (audioCtx && masterGain) {
+                                masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+                            }
                         }
                     });
                     bridge.platform.sendMessage('game_ready');
@@ -507,6 +514,9 @@
             isSoundMuted = !isSoundMuted;
             if (audioCtx && masterGain) {
                 masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+            }
+            if (isSoundMuted && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
             }
             const btn = document.getElementById('btn-sound-toggle');
             if (btn) btn.innerText = isSoundMuted ? '🔇' : '🔊';
@@ -673,7 +683,7 @@
         function ensureAudioContext() { if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.gain.value = isSoundMuted ? 0 : SOUND_VOLUME; masterGain.connect(audioCtx.destination); tiltOsc = audioCtx.createOscillator(); tiltOsc.type = 'triangle'; tiltOsc.frequency.value = 50; tiltFilter = audioCtx.createBiquadFilter(); tiltFilter.type = 'lowpass'; tiltFilter.Q.value = 1; tiltGain = audioCtx.createGain(); tiltGain.gain.value = 0; tiltOsc.connect(tiltFilter); tiltFilter.connect(tiltGain); tiltGain.connect(masterGain); tiltOsc.start(); } catch(e){} } if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); if(window.speechSynthesis && !window.speechSynthesis.speaking) { const u=new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(u); } }
         function initAudio() { ensureAudioContext(); if(window.speechSynthesis) { const loadV = () => { availableVoices = window.speechSynthesis.getVoices(); }; loadV(); window.speechSynthesis.onvoiceschanged = loadV; } }
         document.addEventListener('touchstart', ensureAudioContext, {passive: true}); document.addEventListener('mousedown', ensureAudioContext); document.addEventListener('keydown', ensureAudioContext);
-        function speak(text) { if(!window.speechSynthesis) return; const u = new SpeechSynthesisUtterance(text); u.volume = VOICE_VOLUME; u.rate = 1.1; u.pitch = 1.0; const v = availableVoices.find(voice => voice.lang === 'en-US'); if(v) u.voice = v; window.speechSynthesis.speak(u); }
+        function speak(text) { if(!window.speechSynthesis || isSoundMuted || isAdPlaying) return; const u = new SpeechSynthesisUtterance(text); u.volume = VOICE_VOLUME; u.rate = 1.1; u.pitch = 1.0; const v = availableVoices.find(voice => voice.lang === 'en-US'); if(v) u.voice = v; window.speechSynthesis.speak(u); }
         function updateTiltSound(mag) { if (!audioCtx || !tiltGain) return; const v=Math.min(mag*0.4,0.1); const f=60+mag*800; tiltGain.gain.setTargetAtTime(v,audioCtx.currentTime,0.05); tiltFilter.frequency.setTargetAtTime(f,audioCtx.currentTime,0.05); }
         function startBGM() { if (!audioCtx) ensureAudioContext(); stopBGM(); if(audioCtx && audioCtx.state === 'running') { bgmGain=audioCtx.createGain(); bgmGain.gain.value=0.5; bgmGain.connect(masterGain); beatCount=0; const stepTime = (60/BPM/4); bgmInterval=setInterval(()=>{ if(audioCtx.state==='running'){ playSeqStep(audioCtx.currentTime, beatCount); beatCount=(beatCount+1)%64; } }, stepTime*1000); } }
         function stopBGM() { if(bgmInterval) clearInterval(bgmInterval); if(bgmGain){ try{bgmGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.5); setTimeout(()=>{if(bgmGain){bgmGain.disconnect();bgmGain=null;}},600);}catch(e){} } }
@@ -1257,8 +1267,8 @@
         }
 
         // --- INPUT & ANIMATION LOOP ---
-        function onPointerDown(e) { if(!gameActive||isProcessing||isGameOver)return; ensureAudioContext(); isDragging=true; dragStartCoords={x:e.clientX, y:e.clientY}; }
-        function onTouchStart(e) { if(!gameActive||isProcessing||isGameOver)return; ensureAudioContext(); isDragging=true; dragStartCoords={x:e.touches[0].clientX, y:e.touches[0].clientY}; }
+        function onPointerDown(e) { if(!gameActive||isProcessing||isGameOver||isAdPlaying)return; ensureAudioContext(); isDragging=true; dragStartCoords={x:e.clientX, y:e.clientY}; }
+        function onTouchStart(e) { if(!gameActive||isProcessing||isGameOver||isAdPlaying)return; ensureAudioContext(); isDragging=true; dragStartCoords={x:e.touches[0].clientX, y:e.touches[0].clientY}; }
         function onPointerMove(e) { if(isDragging) handleInput(e.clientX, e.clientY); }
         function onTouchMove(e) { if(isDragging) { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); } }
         
@@ -1279,7 +1289,7 @@
             }
         }
         function endDrag() { isDragging=false; if(!isProcessing && !isClearingStage) resetTilt(); updateTiltSound(0); hasTriggeredThisDrag=false; }
-        function onKeyDown(e) { if(!gameActive||isProcessing||isGameOver)return; ensureAudioContext(); if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){ e.preventDefault(); isKeyActive=true; activeKeys[e.code]=true; } }
+        function onKeyDown(e) { if(!gameActive||isProcessing||isGameOver||isAdPlaying)return; ensureAudioContext(); if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){ e.preventDefault(); isKeyActive=true; activeKeys[e.code]=true; } }
         function onKeyUp(e) { if(activeKeys[e.code]){ delete activeKeys[e.code]; if(Object.keys(activeKeys).length===0){ isKeyActive=false; if(!isProcessing && !isClearingStage)resetTilt(); updateTiltSound(0); hasTriggeredThisKey=false; } } }
         function updateKeyboardTilt() {
             if(!gameActive||isProcessing||!isKeyActive || isClearingStage || isGameOver)return;
