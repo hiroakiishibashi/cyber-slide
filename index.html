@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Slide: Production Edition v20</title>
+    <title>Cyber Slide: Production Edition v21</title>
     <!-- Playgama Bridge SDK (official CDN) -->
     <script src="https://bridge.playgama.com/v1/stable/playgama-bridge.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
@@ -298,7 +298,7 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v20</div>
+            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v21</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -458,6 +458,8 @@
         let isSoundMuted = false;
         let isAdPlaying = false;
         let maxUnlockedStage = 1;
+        let stageDataArray = null;
+        let isBridgeStorageAvailable = false;
 
         // --- Playgama SDK Integration ---
         function initSDK() {
@@ -497,10 +499,20 @@
             }
         }
 
+        async function loadStageData() {
+            try {
+                const res = await fetch('stages.json');
+                const data = await res.json();
+                stageDataArray = data.stages;
+            } catch(e) {
+                console.warn('stages.json not found, using algorithmic generation');
+            }
+        }
+
         async function loadProgress() {
             let val;
             if (typeof bridge !== 'undefined' && bridge.storage) {
-                try { val = await bridge.storage.get(SAVE_KEY); }
+                try { val = await bridge.storage.get(SAVE_KEY); isBridgeStorageAvailable = true; }
                 catch(e) { val = localStorage.getItem(SAVE_KEY); }
             } else {
                 val = localStorage.getItem(SAVE_KEY);
@@ -628,6 +640,13 @@
         }
 
         function calculateStageDifficulty(stage) {
+            if (stageDataArray && stage >= 1 && stage <= stageDataArray.length) {
+                const sd = stageDataArray[stage - 1];
+                const map = [];
+                for (let x = 0; x < sd.w; x++) { map[x] = []; for (let z = 0; z < sd.h; z++) map[x][z] = false; }
+                sd.map.forEach((row, z) => { for (let x = 0; x < row.length; x++) if (row[x] === '1') map[x][z] = true; });
+                return { w: sd.w, h: sd.h, map, colors: sd.colors, spawnAmount: sd.spawn, spawnRate: sd.spawnRate, targetCores: sd.cores, obstacleRate: sd.obstacles, turnLimit: sd.turns };
+            }
             const shape = getBoardShape(stage);
             let w = shape.w, h = shape.h;
             let c = 2, sa = 1, rate = 5, target = 1, obsRate = 0, limit = 25; 
@@ -647,7 +666,11 @@
 
         // --- VISUALS ---
         function generateVisuals(stage) {
-            const colorPhase = Math.floor((stage - 1) / 5); const stylePhase = Math.floor((stage - 1) / 10); 
+            if (stageDataArray && stage >= 1 && stage <= stageDataArray.length) {
+                const sd = stageDataArray[stage - 1];
+                return { bg: parseInt(sd.bg, 16), fog: parseInt(sd.bg, 16), gridColor: parseInt(sd.grid, 16), plane: parseInt(sd.plane, 16), palette: PALETTES[sd.palette], style: THEMES[sd.theme], styleName: sd.theme };
+            }
+            const colorPhase = Math.floor((stage - 1) / 5); const stylePhase = Math.floor((stage - 1) / 10);
             const baseHue = (colorPhase * 45) % 360; 
             const bgCol = new THREE.Color().setHSL(baseHue / 360, 0.5, 0.08); 
             const gridCol = new THREE.Color().setHSL(baseHue / 360, 0.9, 0.6); 
@@ -1328,12 +1351,20 @@
         }
 
         function showConfigMenu() { document.getElementById('main-menu').style.display='none'; document.getElementById('config-menu').style.display='flex'; }
-        function showStageSelectMenu() { document.getElementById('main-menu').style.display='none'; document.getElementById('stage-select-menu').style.display='flex'; }
+        function showStageSelectMenu() {
+            const maxAllowed = isBridgeStorageAvailable ? maxUnlockedStage : 300;
+            const input = document.getElementById('stage-input');
+            input.max = maxAllowed;
+            input.value = Math.min(parseInt(input.value) || 1, maxAllowed);
+            document.getElementById('main-menu').style.display='none';
+            document.getElementById('stage-select-menu').style.display='flex';
+        }
 
         function changeStage(delta) {
             const input = document.getElementById('stage-input');
+            const maxAllowed = isBridgeStorageAvailable ? maxUnlockedStage : 300;
             let val = parseInt(input.value) + delta;
-            if(val < 1) val = 1; if(val > 300) val = 300;
+            if(val < 1) val = 1; if(val > maxAllowed) val = maxAllowed;
             input.value = val;
         }
         function attachStageEvents() {
@@ -1457,7 +1488,7 @@
                 d.addEventListener('touchstart', onTouchStart, {passive: false}); d.addEventListener('touchmove', onTouchMove, {passive: false}); window.addEventListener('touchend', endDrag);
                 document.addEventListener('keydown', onKeyDown); document.addEventListener('keyup', onKeyUp);
                 requestAnimationFrame(animate); 
-                setTimeout(() => { document.getElementById('loading-screen').style.display='none'; showStartScreen(); }, 1000); 
+                setTimeout(async () => { await loadStageData(); document.getElementById('loading-screen').style.display='none'; showStartScreen(); }, 1000);
             } 
             catch(e) { console.error(e); alert("Init Error: "+e.message); }
         });
