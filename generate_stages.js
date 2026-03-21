@@ -280,7 +280,12 @@ function calculateStageDifficulty(stage) {
         spawnAmount: Math.max(1, 1 + Math.floor(d * 2)),
         spawnRate:   Math.round(Math.max(3, 10 - d * 7)),
         targetCores: Math.min(5, Math.max(1, 1 + Math.floor(d * 4))),
-        obstacleRate: Math.floor(d * 18),
+        // obstacleRate = N means 1-in-N spawned blocks is an obstacle.
+        // Higher N = rarer obstacles = EASIER. 0 = none (easiest).
+        // 1 is INVALID (would make every block an obstacle → unbeatable).
+        // So: 0 for tutorial (stages 1–10), then ≥2 for stage 11+.
+        // As difficulty rises, N decreases (obstacles more frequent).
+        obstacleRate: stage <= 10 ? 0 : Math.max(2, Math.round(12 - d * 10)),
         turnLimit:   Math.round(Math.max(20, 40 - d * 15)),
     };
 }
@@ -356,5 +361,6 @@ console.log('\n=== Difficulty at stage milestones ===');
 [1,5,6,10,50,100,150,200,250,295,296,300].forEach(i => {
     const d = getWaveDifficulty(i);
     const diff = calculateStageDifficulty(i);
-    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} colors=${diff.colors} cores=${diff.targetCores} spawnRate=${diff.spawnRate} obstacles=${diff.obstacleRate}% turns=${diff.turnLimit}`);
+    const obs = diff.obstacleRate === 0 ? 'none' : `1/${diff.obstacleRate}`;
+    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} colors=${diff.colors} cores=${diff.targetCores} spawnRate=${diff.spawnRate} obstacles=${obs} turns=${diff.turnLimit}`);
 });
