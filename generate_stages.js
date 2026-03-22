@@ -271,6 +271,37 @@ function getWaveDifficulty(stage) {
 function calculateStageDifficulty(stage) {
     const shape = getBoardShape(stage);
     const d = getWaveDifficulty(stage);
+    const globalT = (stage - 1) / 299;  // 0..1 purely by stage progression
+
+    // --- Spawn rate ---
+    const spawnRate = Math.round(Math.max(3, 10 - d * 7));
+
+    // --- Target cores ---
+    // Quadratic curve so early waves stay gentle; blends d² with globalT so the
+    // very first 5-stage wave doesn't spike too hard. Max 30 for stage 300 wave 5.
+    const targetCores = Math.min(30, Math.max(1,
+        Math.round(d * d * 30 * (0.5 + 0.5 * globalT))
+    ));
+
+    // --- Turn limit ---
+    // Give the player enough tilts to realistically collect all cores.
+    // Base 25 + 2.5× targetCores, minimum 30.
+    const turnLimit = Math.round(Math.max(30, targetCores * 2.5 + 25));
+
+    // --- Obstacle rate ---
+    // obstacleRate = N means 1-in-N spawned blocks is an obstacle.
+    // Higher N = rarer obstacles = EASIER. 0 = none (easiest).
+    // 1 is INVALID (would make every block an obstacle → unbeatable).
+    // So: 0 for tutorial (stages 1–10), then ≥2 for stage 11+.
+    // As difficulty rises, N decreases (obstacles more frequent).
+    // Must NOT equal spawnRate (core interval): if equal, obstacles would
+    // always coincide with cores, causing one to permanently suppress the other.
+    let obstacleRate = 0;
+    if (stage > 10) {
+        let or = Math.max(2, Math.round(12 - d * 10));
+        if (or === spawnRate) or = Math.max(2, or + 1);
+        obstacleRate = or;
+    }
 
     return {
         w: shape.w,
@@ -278,23 +309,10 @@ function calculateStageDifficulty(stage) {
         map: shape.map,
         colors:      Math.min(6, Math.max(2, 2 + Math.floor(d * 4))),
         spawnAmount: Math.max(1, 1 + Math.floor(d * 2)),
-        spawnRate:   Math.round(Math.max(3, 10 - d * 7)),
-        targetCores: Math.min(5, Math.max(1, 1 + Math.floor(d * 4))),
-        // obstacleRate = N means 1-in-N spawned blocks is an obstacle.
-        // Higher N = rarer obstacles = EASIER. 0 = none (easiest).
-        // 1 is INVALID (would make every block an obstacle → unbeatable).
-        // So: 0 for tutorial (stages 1–10), then ≥2 for stage 11+.
-        // As difficulty rises, N decreases (obstacles more frequent).
-        // Must NOT equal spawnRate (core interval): if equal, obstacles would
-        // always coincide with cores, causing one to permanently suppress the other.
-        obstacleRate: (() => {
-            if (stage <= 10) return 0;
-            const sr = Math.round(Math.max(3, 10 - d * 7)); // spawnRate
-            let or = Math.max(2, Math.round(12 - d * 10));
-            if (or === sr) or = Math.max(2, or + 1);        // avoid exact collision
-            return or;
-        })(),
-        turnLimit:   Math.round(Math.max(20, 40 - d * 15)),
+        spawnRate,
+        targetCores,
+        obstacleRate,
+        turnLimit,
     };
 }
 

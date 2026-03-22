@@ -901,13 +901,38 @@
 
         function adjustCameraZoom() {
             if(!camera) return;
-            const aspect = window.innerWidth / window.innerHeight;
-            const maxDim = Math.max(GRID_W, GRID_H);
-            const baseFactor = Math.max(0.8, 1.4 - (maxDim * 0.08)); 
-            const boardSize = maxDim * SPACING; 
-            let targetDist;
-            if (aspect > 1) { targetDist = Math.max(8, boardSize * baseFactor); } 
-            else { targetDist = Math.max(12, boardSize * (baseFactor + 0.6)); }
+            // --- Mathematically derived camera distance ---
+            // Camera sits at (0, D, D*0.8) and looks at origin.
+            // Camera basis vectors (normalised direction magnitude = sqrt(1+0.64)=1.281):
+            //   forward = (0, -0.781, -0.625)
+            //   right   = (1,  0,     0    )
+            //   up      = (0,  0.625,-0.781)
+            //
+            // For any board corner (±halfW, 0, ±halfH) the camera-space coords are:
+            //   x_cam =  halfW
+            //   y_cam = -0.781 * halfH          (near corners; +0.781*halfH for far)
+            //   z_cam =  1.281*D - 0.625*halfH  (near corners)
+            //
+            // Visibility requires |x_cam/z_cam| ≤ tan(hFov/2) AND
+            //                     |y_cam/z_cam| ≤ tan(vFov/2)
+            // Solving for D gives the two constraints below.
+
+            const fovRad   = camera.fov * Math.PI / 180;
+            const vHalf    = fovRad / 2;
+            const aspect   = window.innerWidth / window.innerHeight;
+            const hHalf    = Math.atan(Math.tan(vHalf) * aspect);
+
+            const halfW = (GRID_W * SPACING) / 2;
+            const halfH = (GRID_H * SPACING) / 2;
+
+            // Minimum D so the near bottom edge (worst case) stays on screen:
+            const D_vert  = (0.781 * halfH / Math.tan(vHalf) + 0.625 * halfH) / 1.281;
+            // Minimum D so the left/right edge stays on screen:
+            const D_horiz = (halfW / Math.tan(hHalf) + 0.625 * halfH) / 1.281;
+
+            // 1.3× safety margin accounts for HUD bars (top & bottom) and board shapes
+            const targetDist = Math.max(8, Math.max(D_vert, D_horiz) * 1.3);
+
             camera.position.set(0, targetDist, targetDist * 0.8);
             camera.lookAt(0, 0, 0);
         }
