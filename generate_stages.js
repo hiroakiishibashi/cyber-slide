@@ -285,7 +285,15 @@ function calculateStageDifficulty(stage) {
         // 1 is INVALID (would make every block an obstacle → unbeatable).
         // So: 0 for tutorial (stages 1–10), then ≥2 for stage 11+.
         // As difficulty rises, N decreases (obstacles more frequent).
-        obstacleRate: stage <= 10 ? 0 : Math.max(2, Math.round(12 - d * 10)),
+        // Must NOT equal spawnRate (core interval): if equal, obstacles would
+        // always coincide with cores, causing one to permanently suppress the other.
+        obstacleRate: (() => {
+            if (stage <= 10) return 0;
+            const sr = Math.round(Math.max(3, 10 - d * 7)); // spawnRate
+            let or = Math.max(2, Math.round(12 - d * 10));
+            if (or === sr) or = Math.max(2, or + 1);        // avoid exact collision
+            return or;
+        })(),
         turnLimit:   Math.round(Math.max(20, 40 - d * 15)),
     };
 }

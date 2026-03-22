@@ -636,7 +636,7 @@
             while(nextSpawnQueue.length < 15) {
                 totalBlocksSpawned++; let type = 'normal';
                 if (totalBlocksSpawned % SPECIAL_SPAWN_INTERVAL === 0) type = 'special';
-                if (OBSTACLE_SPAWN_INTERVAL > 0 && totalBlocksSpawned % (OBSTACLE_SPAWN_INTERVAL * SPAWN_COUNT) === 0) type = 'obstacle';
+                if (type !== 'special' && OBSTACLE_SPAWN_INTERVAL > 0 && totalBlocksSpawned % (OBSTACLE_SPAWN_INTERVAL * SPAWN_COUNT) === 0) type = 'obstacle';
                 let colorHex = (type === 'obstacle') ? 0x220000 : activeColors[Math.floor(Math.random() * activeColors.length)];
                 nextSpawnQueue.push({ type: type, colorHex: colorHex });
             }
