@@ -319,6 +319,17 @@
         .tut-lbl { font-size: 12px; letter-spacing: 3px; color: #fff; opacity: 0.8; font-family: 'Orbitron', sans-serif; text-transform: uppercase; font-weight: 700; }
         .tut-tap-hint { font-size: 11px; letter-spacing: 2px; color: #fff; opacity: 0.5; font-family: 'Orbitron', sans-serif; position: absolute; bottom: 80px; width: 100%; text-align: center; }
 
+        /* Tutorial: portrait mobile responsive */
+        @media (max-width: 520px) {
+            #tutorial-overlay { flex-direction: column; gap: 18px; }
+            .tut-keys-grid { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 42px); gap: 5px; }
+            .tut-key { width: 42px; height: 42px; font-size: 19px; }
+            .tut-drag-box { width: 100px; height: 58px; }
+            .tut-drag-arrow { font-size: 22px; }
+            .tut-block { gap: 10px; }
+            .tut-tap-hint { bottom: 36px; font-size: 10px; }
+        }
+
         .score-popup { position: absolute; color: var(--col-main); font-weight: 700; font-size: var(--font-m); text-shadow: 0 2px 5px rgba(0,0,0,0.5); pointer-events: none; animation: floatUp 1.0s forwards; z-index: 30; }
         .flying-core { position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 100; box-shadow: 0 0 10px white; pointer-events: none; background: white; }
 
@@ -490,12 +501,23 @@
         </div>
     </div>
 
+    <!-- Rewarded Ad Prompt: shown BEFORE block destruction so board stays intact -->
+    <div id="rewarded-prompt-overlay" style="display:none; pointer-events:auto; position:absolute; top:0; left:0; width:100%; height:100%; justify-content:center; align-items:center; z-index:60;">
+        <div class="banner-clean overlay-content">
+            <div class="msg-title msg-alert">OUT OF TURNS</div>
+            <div class="msg-sub" style="opacity:1; margin-bottom:16px;">Continue playing?</div>
+            <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
+                <button id="btn-rp-watch" class="btn-base btn-rewarded">▶ WATCH AD · +10 TURNS</button>
+                <button id="btn-rp-quit" class="btn-base btn-alert">GIVE UP</button>
+            </div>
+        </div>
+    </div>
+
     <div id="game-over-overlay" class="overlay">
         <div class="banner-clean overlay-content">
             <div id="game-over-text" class="msg-title msg-alert">GAME OVER</div>
             <div id="game-over-buttons" class="overlay-btn-group">
                 <div id="game-over-sub" class="msg-sub" style="opacity:1;">OUT OF TURNS</div>
-                <button id="btn-rewarded-ad" class="btn-base btn-rewarded" style="display:none;">▶ WATCH AD · +10 TURNS</button>
                 <button id="btn-retry" class="btn-base">RETRY</button>
                 <button id="btn-gameover-title" class="btn-base btn-alert">EXIT</button>
             </div>
@@ -573,7 +595,6 @@
         let tiltOsc, tiltGain, tiltFilter, bgmInterval, beatCount = 0, stageSelectTimer = null;
         let isSoundMuted = false;
         let isAdPlaying = false;
-        let _rewardedUsedThisStage = false;
         let maxUnlockedStage = 1;
         let stageDataArray = null;
         let isBridgeStorageAvailable = false;
@@ -1150,17 +1171,18 @@
             await new Promise(r=>safeTimeout(r, 400)); hasSpawnedThisTurn = true; isProcessing=false; runMatchPhase();
         }
 
-        // --- TUTORIAL (初回プレイのみ) ---
+        // --- TUTORIAL (毎セッション初回プレイ時に表示) ---
         let _tutActive = false;
+        let _tutShownThisSession = false;
         function showTutorial() {
-            if (localStorage.getItem('cs_tutorial_done')) return;
+            if (_tutShownThisSession) return;
+            _tutShownThisSession = true;
             _tutActive = true;
             document.getElementById('tutorial-overlay').classList.add('visible');
         }
         function hideTutorial() {
             if (!_tutActive) return;
             _tutActive = false;
-            localStorage.setItem('cs_tutorial_done', '1');
             const el = document.getElementById('tutorial-overlay');
             el.classList.add('hiding');
             setTimeout(() => el.classList.remove('visible', 'hiding'), 700);
@@ -1460,29 +1482,38 @@
         
         async function triggerGameOver() {
             isGameOver = true; isProcessing = true; stopBGM(); speak("Game Over");
+            // 報酬型広告が利用可能ならブロックを消さずにプロンプトを表示
+            const _platform = window.__PLATFORM || 'playgama';
+            const canShowRewarded = (
+                (_platform === 'playgama' && typeof bridge !== 'undefined' && bridge.advertisement && bridge.advertisement.isRewardedSupported) ||
+                (_platform === 'crazygames' && !!__cgSdk)
+            );
+            if (canShowRewarded) {
+                setCinematicGlass(true);
+                await new Promise(r => safeTimeout(r, 500));
+                document.getElementById('rewarded-prompt-overlay').style.display = 'flex';
+            } else {
+                await doGameOverAnimation();
+            }
+        }
+
+        // ブロック消去アニメーション → ゲームオーバー画面表示
+        async function doGameOverAnimation() {
             const blocksToDestroy = [...allBlocks].sort(() => Math.random() - 0.5);
-            for(let i = 0; i < blocksToDestroy.length; i++) {
-                const b = blocksToDestroy[i]; spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 15); b.visible = false;
+            for (let i = 0; i < blocksToDestroy.length; i++) {
+                const b = blocksToDestroy[i];
+                spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 15);
+                b.visible = false;
                 await new Promise(r => safeTimeout(r, 80));
             }
             setCinematicGlass(true);
             await new Promise(r => safeTimeout(r, 1500));
             const overlay = document.getElementById('game-over-overlay');
             overlay.style.display = 'flex';
-            const txt = document.getElementById('game-over-text');
-            const btns = document.getElementById('game-over-buttons');
-            txt.style.opacity = 1; txt.style.transform = 'translateY(0)';
-            btns.style.opacity = 1;
-            // 報酬型広告ボタン: Playgama または CrazyGames かつ今ステージ未使用の場合のみ表示
-            const rewardBtn = document.getElementById('btn-rewarded-ad');
-            const _platform = window.__PLATFORM || 'playgama';
-            const canShowRewarded = !_rewardedUsedThisStage && (
-                (_platform === 'playgama' && typeof bridge !== 'undefined' && bridge.advertisement && bridge.advertisement.isRewardedSupported) ||
-                (_platform === 'crazygames' && !!__cgSdk)
-            );
-            rewardBtn.style.display = canShowRewarded ? 'block' : 'none';
-            // インタースティシャル広告（報酬型広告を表示しない場合のみ）
-            if (!canShowRewarded) showInterstitialAd();
+            document.getElementById('game-over-text').style.opacity = 1;
+            document.getElementById('game-over-text').style.transform = 'translateY(0)';
+            document.getElementById('game-over-buttons').style.opacity = 1;
+            showInterstitialAd();
         }
 
         function retryStage() {
@@ -1502,29 +1533,28 @@
 
         document.getElementById('btn-retry').addEventListener('click', retryStage);
         document.getElementById('btn-gameover-title').addEventListener('click', returnToTitleFromGameover);
-        document.getElementById('btn-rewarded-ad').addEventListener('click', () => {
-            document.getElementById('btn-rewarded-ad').style.display = 'none';
+
+        // リワードプロンプト: 広告を見てターン延長 or 諦めてゲームオーバー
+        document.getElementById('btn-rp-watch').addEventListener('click', () => {
+            document.getElementById('rewarded-prompt-overlay').style.display = 'none';
             showRewardedAd(rewarded => {
                 if (rewarded) {
-                    // 報酬付与: +10ターン・ゲーム再開
-                    _rewardedUsedThisStage = true;
-                    isAdPlaying = false;
-                    if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+                    // 報酬付与: +10ターン・盤面そのまま・ゲーム再開
                     remainingTurns += 10;
                     isGameOver = false; isProcessing = false;
                     setCinematicGlass(false);
-                    document.getElementById('game-over-overlay').style.display = 'none';
-                    document.getElementById('game-over-text').style.opacity = 0;
-                    document.getElementById('game-over-text').style.transform = 'translateY(20px)';
-                    document.getElementById('game-over-buttons').style.opacity = 0;
                     updateUIInfo();
                     showBannerMessage("TIME EXTEND", "+10 TURNS", "special");
                     speak("Time Extend"); startBGM();
                 } else {
-                    // 広告失敗: ボタンを再表示
-                    document.getElementById('btn-rewarded-ad').style.display = 'block';
+                    // 広告未完了またはエラー → 通常ゲームオーバーへ
+                    doGameOverAnimation();
                 }
             });
+        });
+        document.getElementById('btn-rp-quit').addEventListener('click', () => {
+            document.getElementById('rewarded-prompt-overlay').style.display = 'none';
+            doGameOverAnimation();
         });
 
         function flyCoreToUI(p3, c) { 
@@ -1721,7 +1751,7 @@
             if(!validGrid.length) for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; }
             activeColors = visuals.palette.slice(0, diff.colors); SPAWN_COUNT = diff.spawnAmount;
             SPECIAL_SPAWN_INTERVAL = diff.spawnRate; TARGET_SPECIAL_CLEARS = diff.targetCores; OBSTACLE_SPAWN_INTERVAL = diff.obstacleRate; 
-            remainingTurns = diff.turnLimit; totalBlocksSpawned = 0; clearedSpecialCount=0; totalBlocks=0; _rewardedUsedThisStage = false;
+            remainingTurns = diff.turnLimit; totalBlocksSpawned = 0; clearedSpecialCount=0; totalBlocks=0;
             startBGM(); initGameBoard();
         }
 
