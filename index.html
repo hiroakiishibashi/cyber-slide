@@ -639,7 +639,8 @@
                         } else if (state === 'closed' || state === 'failed') {
                             isAdPlaying = false;
                             if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
-                            if (state === 'failed' && _rewardedCallback) { _rewardedCallback(false); _rewardedCallback = null; }
+                            // closed（途中終了）も failed もリワード未取得 → false で通知して遷移させる
+                            if (_rewardedCallback) { _rewardedCallback(false); _rewardedCallback = null; }
                         }
                     });
                     bridge.platform.sendMessage('game_ready');
