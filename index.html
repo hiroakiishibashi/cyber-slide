@@ -280,23 +280,26 @@
             100% { transform: translateX(-10px); opacity: 0.3; }
         }
         #tutorial-overlay {
-            position: absolute; bottom: 90px; left: 0; right: 0;
-            display: none; justify-content: center; align-items: center; gap: 28px;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: none; justify-content: center; align-items: center; gap: 36px;
             pointer-events: none; z-index: 25; transition: opacity 0.6s ease;
+            background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
         }
         #tutorial-overlay.visible { display: flex; animation: tutFadeIn 0.9s ease-out both; }
         #tutorial-overlay.hiding  { opacity: 0; }
-        .tut-block { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .tut-block { display: flex; flex-direction: column; align-items: center; gap: 14px; }
         .tut-keys-grid {
-            display: grid; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(2, 36px); gap: 4px;
+            display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px;
         }
         .tut-key {
-            width: 36px; height: 36px; border-radius: 6px;
-            border: 1px solid rgba(255,255,255,0.45);
-            background: rgba(255,255,255,0.07);
+            width: 52px; height: 52px; border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.75);
+            background: rgba(255,255,255,0.12);
             display: flex; justify-content: center; align-items: center;
-            font-size: 17px; color: var(--col-main);
+            font-size: 24px; color: #fff;
+            font-weight: 700;
             animation: keyPulse 1.8s ease-in-out infinite;
+            text-shadow: 0 0 10px rgba(255,255,255,0.8);
         }
         .tut-key.empty { border: none; background: none; animation: none; }
         .tut-key:nth-child(2) { animation-delay: 0s;    }
@@ -304,13 +307,15 @@
         .tut-key:nth-child(5) { animation-delay: 0.15s; }
         .tut-key:nth-child(6) { animation-delay: 0.3s;  }
         .tut-drag-box {
-            width: 84px; height: 52px; border: 1px solid rgba(255,255,255,0.4);
-            border-radius: 10px; display: flex; justify-content: center; align-items: center;
-            background: rgba(255,255,255,0.06); overflow: hidden;
+            width: 120px; height: 72px;
+            border: 2px solid rgba(255,255,255,0.75);
+            border-radius: 12px; display: flex; justify-content: center; align-items: center;
+            background: rgba(255,255,255,0.12); overflow: hidden;
         }
-        .tut-drag-arrow { font-size: 20px; color: var(--col-main); opacity: 0.85; animation: dragSlide 1.6s ease-in-out infinite; }
-        .tut-or  { font-size: 10px; letter-spacing: 2px; color: var(--col-main); opacity: 0.35; font-family: 'Orbitron', sans-serif; }
-        .tut-lbl { font-size: 9px; letter-spacing: 2px; color: var(--col-main); opacity: 0.45; font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
+        .tut-drag-arrow { font-size: 28px; color: #fff; font-weight: 700; animation: dragSlide 1.6s ease-in-out infinite; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
+        .tut-or  { font-size: 13px; letter-spacing: 2px; color: #fff; opacity: 0.6; font-family: 'Orbitron', sans-serif; }
+        .tut-lbl { font-size: 12px; letter-spacing: 3px; color: #fff; opacity: 0.8; font-family: 'Orbitron', sans-serif; text-transform: uppercase; font-weight: 700; }
+        .tut-tap-hint { font-size: 11px; letter-spacing: 2px; color: #fff; opacity: 0.5; font-family: 'Orbitron', sans-serif; position: absolute; bottom: 80px; width: 100%; text-align: center; }
 
         .score-popup { position: absolute; color: var(--col-main); font-weight: 700; font-size: var(--font-m); text-shadow: 0 2px 5px rgba(0,0,0,0.5); pointer-events: none; animation: floatUp 1.0s forwards; z-index: 30; }
         .flying-core { position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 100; box-shadow: 0 0 10px white; pointer-events: none; background: white; }
@@ -408,6 +413,7 @@
             </div>
             <div class="tut-lbl">DRAG TO TILT</div>
         </div>
+        <div class="tut-tap-hint">— TILT TO DISMISS —</div>
     </div>
 
     <!-- HELP SCREEN -->
