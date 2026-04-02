@@ -209,6 +209,8 @@
 
         .btn-mini { font-size: var(--font-s); padding: 6px 12px; border: 1px solid var(--glass-border); border-radius: 20px; background: rgba(255,255,255,0.1); color: var(--col-main); cursor: pointer; transition: all 0.2s; font-family: 'Orbitron', sans-serif; }
         .btn-mini:hover { background: rgba(255,255,255,0.2); }
+        .btn-rewarded { border-color: #ffd700 !important; color: #ffd700 !important; }
+        .btn-rewarded:hover { background: rgba(255,215,0,0.15) !important; box-shadow: 0 0 16px rgba(255,215,0,0.3); }
 
         #combo-display { 
             position: absolute; top: 40%; width: 100%; text-align: center; 
@@ -493,6 +495,7 @@
             <div id="game-over-text" class="msg-title msg-alert">GAME OVER</div>
             <div id="game-over-buttons" class="overlay-btn-group">
                 <div id="game-over-sub" class="msg-sub" style="opacity:1;">OUT OF TURNS</div>
+                <button id="btn-rewarded-ad" class="btn-base btn-rewarded" style="display:none;">▶ WATCH AD · +10 TURNS</button>
                 <button id="btn-retry" class="btn-base">RETRY</button>
                 <button id="btn-gameover-title" class="btn-base btn-alert">EXIT</button>
             </div>
@@ -570,6 +573,7 @@
         let tiltOsc, tiltGain, tiltFilter, bgmInterval, beatCount = 0, stageSelectTimer = null;
         let isSoundMuted = false;
         let isAdPlaying = false;
+        let _rewardedUsedThisStage = false;
         let maxUnlockedStage = 1;
         let stageDataArray = null;
         let isBridgeStorageAvailable = false;
@@ -587,6 +591,8 @@
             // 'itch' and others: no platform SDK needed, localStorage fallback handles everything
         }
 
+        let _rewardedCallback = null;
+
         function initPlaygamaSDK() {
             if (typeof bridge === 'undefined') return;
             bridge.initialize({})
@@ -601,9 +607,29 @@
                             if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
                         }
                     });
+                    bridge.advertisement.on('rewarded_state_changed', state => {
+                        if (state === 'opened') {
+                            isAdPlaying = true;
+                            if (window.speechSynthesis) window.speechSynthesis.cancel();
+                            if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                        } else if (state === 'rewarded') {
+                            // 報酬付与は rewarded 状態のみ（closed/failed では付与しない）
+                            if (_rewardedCallback) { _rewardedCallback(true); _rewardedCallback = null; }
+                        } else if (state === 'closed' || state === 'failed') {
+                            isAdPlaying = false;
+                            if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+                            if (state === 'failed' && _rewardedCallback) { _rewardedCallback(false); _rewardedCallback = null; }
+                        }
+                    });
                     bridge.platform.sendMessage('game_ready');
                 })
                 .catch(e => console.warn('Playgama Bridge init:', e));
+        }
+
+        function showRewardedAd(onRewarded) {
+            if (window.__PLATFORM !== 'playgama' || typeof bridge === 'undefined' || !bridge.advertisement) return;
+            _rewardedCallback = onRewarded;
+            bridge.advertisement.showRewarded();
         }
 
         function initCrazyGamesSDK() {
@@ -1416,8 +1442,16 @@
             const btns = document.getElementById('game-over-buttons');
             txt.style.opacity = 1; txt.style.transform = 'translateY(0)';
             btns.style.opacity = 1;
-            // Show interstitial during the natural pause (game over screen is visible)
-            showInterstitialAd();
+            // 報酬型広告ボタン: Playgama かつ今ステージ未使用の場合のみ表示
+            const rewardBtn = document.getElementById('btn-rewarded-ad');
+            const canShowRewarded = window.__PLATFORM === 'playgama'
+                && typeof bridge !== 'undefined'
+                && bridge.advertisement
+                && bridge.advertisement.isRewardedSupported
+                && !_rewardedUsedThisStage;
+            rewardBtn.style.display = canShowRewarded ? 'block' : 'none';
+            // インタースティシャル広告（報酬型広告を表示しない場合のみ）
+            if (!canShowRewarded) showInterstitialAd();
         }
 
         function retryStage() {
@@ -1437,6 +1471,30 @@
 
         document.getElementById('btn-retry').addEventListener('click', retryStage);
         document.getElementById('btn-gameover-title').addEventListener('click', returnToTitleFromGameover);
+        document.getElementById('btn-rewarded-ad').addEventListener('click', () => {
+            document.getElementById('btn-rewarded-ad').style.display = 'none';
+            showRewardedAd(rewarded => {
+                if (rewarded) {
+                    // 報酬付与: +10ターン・ゲーム再開
+                    _rewardedUsedThisStage = true;
+                    isAdPlaying = false;
+                    if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(isSoundMuted ? 0 : SOUND_VOLUME, audioCtx.currentTime, 0.1);
+                    remainingTurns += 10;
+                    isGameOver = false; isProcessing = false;
+                    setCinematicGlass(false);
+                    document.getElementById('game-over-overlay').style.display = 'none';
+                    document.getElementById('game-over-text').style.opacity = 0;
+                    document.getElementById('game-over-text').style.transform = 'translateY(20px)';
+                    document.getElementById('game-over-buttons').style.opacity = 0;
+                    updateUIInfo();
+                    showBannerMessage("TIME EXTEND", "+10 TURNS", "special");
+                    speak("Time Extend"); startBGM();
+                } else {
+                    // 広告失敗: ボタンを再表示
+                    document.getElementById('btn-rewarded-ad').style.display = 'block';
+                }
+            });
+        });
 
         function flyCoreToUI(p3, c) { 
             if(!gameActive) return Promise.resolve(); 
@@ -1632,7 +1690,7 @@
             if(!validGrid.length) for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; }
             activeColors = visuals.palette.slice(0, diff.colors); SPAWN_COUNT = diff.spawnAmount;
             SPECIAL_SPAWN_INTERVAL = diff.spawnRate; TARGET_SPECIAL_CLEARS = diff.targetCores; OBSTACLE_SPAWN_INTERVAL = diff.obstacleRate; 
-            remainingTurns = diff.turnLimit; totalBlocksSpawned = 0; clearedSpecialCount=0; totalBlocks=0; 
+            remainingTurns = diff.turnLimit; totalBlocksSpawned = 0; clearedSpecialCount=0; totalBlocks=0; _rewardedUsedThisStage = false;
             startBGM(); initGameBoard();
         }
 
