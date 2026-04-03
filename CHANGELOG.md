@@ -4,6 +4,22 @@
 
 ---
 
+## ✅ v24 — 2026-04-03
+
+**Status: 申請済み（Playgama ✅）**
+
+### Playgama SDK Enhancements
+- `preloadRewarded()` をSDK初期化直後に実行 → リワード広告の待ち時間ゼロ
+- `visibility_state_changed` リスナー追加 → タブ非表示時に音声ミュート・TTS停止、復帰時に自動復元
+- `gameplay_started/stopped` メッセージ送信 → Playgamaアナリティクスの精度向上
+- `trySocialPrompt()`: ステージ5クリアで `rate()`、ステージ10クリアで `addToHomeScreen()` を各1回表示
+- config: `minimumDelayBetweenInterstitial` 60→30秒、`rewarded.preloadOnStart: true` 追加
+
+### Bug Fixes
+- バージョン表示を v23 → v24 に更新
+
+---
+
 ## ✅ v23 — 2026-04-02
 
 **Status: 申請済み（Playgama ✅ / CrazyGames ✅ / itch.io ✅）**
@@ -42,8 +58,7 @@
 
 ### Bug Fixes
 - Fixed invisible ghost blocks after rewarded ad resume
-- Fixed game freeze when Playgama rewarded ad closed mid-play (closed state now triggers game-over flow)
-- Fixed version display string (v22 → v23)
+- Fixed game freeze when Playgama rewarded ad closed mid-play
 - Fixed CrazyGames SDK method names (sdkGameLoadingStart/Stop → loadingStart/Stop)
 - Fixed hasAdblock() callback → Promise API
 
