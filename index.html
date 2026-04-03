@@ -600,6 +600,7 @@
         let isBridgeStorageAvailable = false;
         let editorTestMode = false;
         let __cgSdk = null; // CrazyGames SDK reference
+        let _gameplayMessageSent = false; // Playgama gameplay_started 送信追跡フラグ
 
         // --- Playgama SDK Integration ---
         function initSDK() {
@@ -644,8 +645,33 @@
                         }
                     });
                     bridge.platform.sendMessage('game_ready');
+                    // リワード広告を事前ロード（ボタン押下時の待ち時間ゼロに）
+                    bridge.advertisement.preloadRewarded();
+                    // タブ切り替え時に音声停止・復帰
+                    bridge.game.on('visibility_state_changed', state => {
+                        if (state === 'hidden') {
+                            if (window.speechSynthesis) window.speechSynthesis.cancel();
+                            if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                        } else if (state === 'visible' && !isAdPlaying && !isSoundMuted) {
+                            if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(SOUND_VOLUME, audioCtx.currentTime, 0.3);
+                        }
+                    });
                 })
                 .catch(e => console.warn('Playgama Bridge init:', e));
+        }
+
+        // ソーシャル機能: ステージクリア後に評価・ホーム追加を促す（各1回のみ）
+        function trySocialPrompt(stage) {
+            if (window.__PLATFORM !== 'playgama' || typeof bridge === 'undefined') return;
+            if (stage === 5 && !localStorage.getItem('cs_rated') && bridge.social.isRateSupported) {
+                bridge.social.rate()
+                    .then(() => localStorage.setItem('cs_rated', '1'))
+                    .catch(() => {});
+            } else if (stage === 10 && !localStorage.getItem('cs_home_added') && bridge.social.isAddToHomeScreenSupported) {
+                bridge.social.addToHomeScreen()
+                    .then(() => localStorage.setItem('cs_home_added', '1'))
+                    .catch(() => {});
+            }
         }
 
         function showRewardedAd(onRewarded) {
@@ -1580,8 +1606,8 @@
             const startScore = currentScore; currentScore += turnBonus;
             const startTurns = remainingTurns;
             
-            if(isCampaignMode) { saveProgress(currentStage); }
-            if (__cgSdk) __cgSdk.game.happytime(); // CrazyGames: stage clear celebration
+            if(isCampaignMode) { saveProgress(currentStage); trySocialPrompt(currentStage); }
+            if (__cgSdk) __cgSdk.game.happytime();
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
 
@@ -1672,8 +1698,9 @@
 
         // --- SETUP ---
         async function showStartScreen() {
+            if (__cgSdk) __cgSdk.game.gameplayStop();
+            if (_gameplayMessageSent && window.__PLATFORM === 'playgama' && typeof bridge !== 'undefined') { bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent = false; }
             gameActive=false; stopBGM();
-            if (__cgSdk) __cgSdk.game.gameplayStop(); // CrazyGames: back to menu
             document.getElementById('game-ui').style.display='none';
             setCinematicGlass(true, true);
             document.getElementById('title-content').style.display = 'flex';
@@ -1735,6 +1762,8 @@
             document.getElementById('title-content').style.display='none'; document.getElementById('btn-help-toggle').style.display='none';
             document.getElementById('game-ui').style.display='flex'; 
             gameActive=true; initGameBoard();
+            if (__cgSdk) __cgSdk.game.gameplayStart();
+            if (window.__PLATFORM === 'playgama' && typeof bridge !== 'undefined') { bridge.platform.sendMessage('gameplay_started'); _gameplayMessageSent = true; }
         }
 
         function launchGame() {
@@ -1742,8 +1771,9 @@
             document.getElementById('title-content').style.display='none'; document.getElementById('btn-help-toggle').style.display='none';
             document.getElementById('game-ui').style.display='flex';
             gameActive=true; startStage(currentStage);
-            if (__cgSdk) __cgSdk.game.gameplayStart(); // CrazyGames: gameplay begins
-            setTimeout(showTutorial, 1800); // 初回のみチュートリアル表示
+            if (__cgSdk) __cgSdk.game.gameplayStart();
+            if (window.__PLATFORM === 'playgama' && typeof bridge !== 'undefined') { bridge.platform.sendMessage('gameplay_started'); _gameplayMessageSent = true; }
+            setTimeout(showTutorial, 1800);
         }
 
         function startStage(stage) {

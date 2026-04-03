@@ -1,7 +1,11 @@
 {
   "advertisement": {
     "useBuiltInErrorPopup": true,
+    "minimumDelayBetweenInterstitial": 30,
     "interstitial": {
+      "preloadOnStart": true
+    },
+    "rewarded": {
       "preloadOnStart": true
     }
   },
