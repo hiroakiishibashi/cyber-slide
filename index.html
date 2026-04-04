@@ -666,6 +666,9 @@
         </div>
     </div>
 
+    <!-- Full-screen fade overlay for game↔stage-select transitions -->
+    <div id="game-fade-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:195;opacity:0;pointer-events:none;transition:opacity 0.8s ease-in-out;"></div>
+
     <!-- ===== STAGE SELECT 3D OVERLAY ===== -->
     <div id="ss-overlay">
         <div id="ss-fade-overlay"></div>
@@ -1724,10 +1727,14 @@
             const overlay = document.getElementById('game-over-overlay');
             overlay.style.display = 'none';
             if (isCampaignMode) {
-                document.getElementById('game-ui').style.display='none';
-                document.getElementById('ss-overlay').style.display='block';
-                stageSelect.syncUnlockedStage(maxUnlockedStage);
-                stageSelect.returnFromGame(false);
+                const _gfo=document.getElementById('game-fade-overlay');
+                if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
+                setTimeout(()=>{
+                    document.getElementById('game-ui').style.display='none';
+                    document.getElementById('ss-overlay').style.display='block';
+                    if(_gfo){setTimeout(()=>{_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='0';},50);}
+                    stageSelect.returnFromGame(false, maxUnlockedStage);
+                },900);
             } else {
                 showStartScreen();
             }
@@ -1825,12 +1832,15 @@
             if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
                 bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
             }
-            // Return to stage select
+            // Fade to black, then show stage select
+            const _gfo=document.getElementById('game-fade-overlay');
+            if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
+            await new Promise(r=>setTimeout(r,900));
             isClearingStage=false; isProcessing=false;
             document.getElementById('game-ui').style.display='none';
             document.getElementById('ss-overlay').style.display='block';
-            stageSelect.syncUnlockedStage(maxUnlockedStage);
-            stageSelect.returnFromGame(true);
+            if(_gfo){setTimeout(()=>{_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='0';},50);}
+            stageSelect.returnFromGame(true, maxUnlockedStage);
         }
 
         async function playGrandFinale() { 
@@ -2015,7 +2025,13 @@
             currentStage = stageIndex + 1;
             currentScore = 0;
             document.getElementById('ss-overlay').style.display = 'none';
+            // Ensure game-fade-overlay is black, then fade in after game starts
+            const _gfo = document.getElementById('game-fade-overlay');
+            if (_gfo) { _gfo.style.transition = 'none'; _gfo.style.opacity = '1'; }
             launchGame();
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (_gfo) { _gfo.style.transition = 'opacity 0.8s ease-in-out'; _gfo.style.opacity = '0'; }
+            }));
         };
 
         async function openStageSelect() {
@@ -2314,10 +2330,11 @@
                         setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},2500);
                     });
                     document.getElementById('ss-btn-back').addEventListener('click',()=>{
-                        if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,0.5);
-                        document.getElementById('ss-overlay').style.display='none';
-                        ssActive=false;ssAnimating=false;
-                        showStartScreen();
+                        if(appState==='TITLE')return;
+                        _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
+                        _titleLayer.style.opacity='1';_titleLayer.style.pointerEvents='auto';
+                        _canvasCont.style.filter='blur(8px)';
+                        appState='TITLE';
                     });
                     document.getElementById('ss-btn-prev').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(-1);});
                     document.getElementById('ss-btn-next').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(1);});
@@ -2363,10 +2380,26 @@
                 },
 
                 syncUnlockedStage(maxVal){
+                    // Only update internal state (do NOT move targetFocusIndex here —
+                    // returnFromGame needs targetFocusIndex to know which stage was just played)
                     unlockedStage=Math.max(0,maxVal-1);
-                    targetFocusIndex=unlockedStage;
                     const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
-                    _updateColors();_initCam();
+                    _updateColors();
+                },
+
+                showTitle(){
+                    // Show stage select in TITLE state: blurred starfield + title layer
+                    ssActive=true;
+                    _ensureAudio();
+                    if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
+                    _fadeOvl.style.transition='none'; _fadeOvl.style.opacity='0';
+                    requestAnimationFrame(()=>{ _fadeOvl.style.transition='opacity 1s ease-in-out'; });
+                    _titleLayer.style.opacity='1'; _titleLayer.style.pointerEvents='auto';
+                    _uiLayer.style.opacity='0'; _uiLayer.style.pointerEvents='none';
+                    _canvasCont.style.filter='blur(8px)';
+                    appState='TITLE';
+                    _clock.start();
+                    if(!ssAnimating){ssAnimating=true;_animate();}
                 },
 
                 show(){
@@ -2382,19 +2415,44 @@
                     if(!ssAnimating){ssAnimating=true;_animate();}
                 },
 
-                returnFromGame(isClear){
+                returnFromGame(isClear, gameMaxUnlocked){
                     ssActive=true;_ensureAudio();
                     if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
-                    _fadeOvl.style.opacity='0';
+                    _flare.visible=true;_pMesh.visible=true;
+
+                    // Update unlock state: determine BEFORE changing internal state
+                    const prevUS=unlockedStage;
+                    if(typeof gameMaxUnlocked==='number'){
+                        const newUS=Math.max(0,gameMaxUnlocked-1);
+                        if(newUS!==unlockedStage){
+                            unlockedStage=newUS;
+                            const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                        }
+                    }
+                    // Fade in: start black, then reveal starfield
+                    _fadeOvl.style.transition='none'; _fadeOvl.style.opacity='1';
+                    requestAnimationFrame(()=>{
+                        requestAnimationFrame(()=>{
+                            _fadeOvl.style.transition='opacity 1s ease-in-out';
+                            _fadeOvl.style.opacity='0';
+                        });
+                    });
+
                     if(isClear){
                         appState='EXITING_STAGE_CLEAR';
-                        const newUnlock=targetFocusIndex===unlockedStage&&unlockedStage<STAGES_TOTAL-1;
+                        // newUnlock: did this clear advance the frontier AND was player at frontier?
+                        const didAdvance=(unlockedStage>prevUS);
+                        const wasOnFrontier=(targetFocusIndex===prevUS);
+                        const showUnlockAnim=didAdvance&&wasOnFrontier;
+                        _updateColors();
                         setTimeout(()=>{
-                            if(newUnlock){
-                                unlockedStage++;const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                            if(showUnlockAnim){
                                 appState='UNLOCKING_NEXT';_playUnlock();_updateColors(true);
-                                setTimeout(()=>{targetFocusIndex=unlockedStage;_vLookAt.copy(_nodes[targetFocusIndex].position);
-                                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);},1000);
+                                setTimeout(()=>{
+                                    targetFocusIndex=unlockedStage;
+                                    _vLookAt.copy(_nodes[targetFocusIndex].position);
+                                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
+                                },1000);
                             }else{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();}
                         },1500);
                     }else{
@@ -2416,7 +2474,15 @@
                 d.addEventListener('touchstart', onTouchStart, {passive: false}); d.addEventListener('touchmove', onTouchMove, {passive: false}); window.addEventListener('touchend', endDrag);
                 document.addEventListener('keydown', onKeyDown); document.addEventListener('keyup', onKeyUp);
                 requestAnimationFrame(animate); 
-                setTimeout(async () => { await loadStageData(); document.getElementById('loading-screen').style.display='none'; showStartScreen(); if (__cgSdk) __cgSdk.game.loadingStop(); }, 1000);
+                setTimeout(async () => {
+                    await loadStageData();
+                    await loadProgress();
+                    document.getElementById('loading-screen').style.display='none';
+                    document.getElementById('ss-overlay').style.display='block';
+                    stageSelect.syncUnlockedStage(maxUnlockedStage);
+                    stageSelect.showTitle();
+                    if (__cgSdk) __cgSdk.game.loadingStop();
+                }, 1000);
             } 
             catch(e) { console.error(e); alert("Init Error: "+e.message); }
         });
