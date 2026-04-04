@@ -4,6 +4,32 @@
 
 ---
 
+## 🚧 v25 — 2026-04-05
+
+**Status: 開発完了・申請準備中**
+
+### New Features
+
+**3D Stage Select (StageSelect統合)**
+- 300個のステージノードを球体上に螺旋配置した3D宇宙マップをindex.htmlに統合
+- Three.js + Bloom後処理によるサイバーパンク演出（選択中ノードのパーティクル・流れ星）
+- ステージクリア後に自動的に3Dマップへ戻り、次ステージアンロック演出
+- ゲームオーバー後のEXITボタンで3Dマップへ戻る
+- BACKボタンでタイトル画面に戻る機能
+- 選択中ステージのハイライト色が動的に変化
+- アンビエントBGM（ドローン音・ランダムベル）
+
+**Leaderboard Integration**
+- Playgama: `bridge.leaderboards.getEntries('highscore')` でプレイヤー周辺5名を表示
+- CrazyGames / itch.io: localStorage `cs_stage_best_N` から個人ベストを表示
+- ステージクリア時に個人ベストをlocalStorageに保存
+- Playgamaでスコアをリーダーボードに送信（`setScore`）
+
+### Bug Fixes
+- バージョン表示を v24 → v25 に更新
+
+---
+
 ## ✅ v24 — 2026-04-03
 
 **Status: 申請済み（Playgama ✅）**

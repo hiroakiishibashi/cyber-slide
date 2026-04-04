@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Slide: Production Edition v24</title>
+    <title>Cyber Slide: Production Edition v25</title>
     <!-- Platform detection & conditional SDK loading -->
     <script>(function(){
         var h=location.hostname;
@@ -351,6 +351,158 @@
             .core-pill { padding: 4px 12px; min-width: 70px; }
             #title-content { padding: 20px; }
         }
+
+        /* ===== STAGE SELECT 3D OVERLAY ===== */
+        #ss-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 200; background: #000; font-family: 'Orbitron', sans-serif;
+            color: #fff; user-select: none; touch-action: none; overflow: hidden;
+        }
+        #ss-canvas-container {
+            width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1;
+            filter: blur(8px); transition: filter 2.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        #ss-title-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            gap: 20px; z-index: 30; transition: opacity 1s ease;
+        }
+        .ss-title-logo {
+            font-size: 3rem; font-weight: 900; letter-spacing: 5px;
+            text-align: center; text-transform: uppercase;
+        }
+        .ss-title-char {
+            display: inline-block; animation: ss-titleHue 4s infinite linear;
+        }
+        @keyframes ss-titleHue {
+            0%,100% { color:#00ffff; text-shadow:0 0 10px #00ffff,0 0 20px #00ffff; }
+            33% { color:#ff00ff; text-shadow:0 0 10px #ff00ff,0 0 20px #ff00ff; }
+            66% { color:#00ffaa; text-shadow:0 0 10px #00ffaa,0 0 20px #00ffaa; }
+        }
+        #ss-btn-title-start {
+            width: 220px; height: 55px; font-size: 1.4rem; font-weight: 700;
+            letter-spacing: 4px; border-radius: 30px; background: rgba(0,0,0,0.8);
+            border: 2px solid var(--ss-hl, #00ffff); color: var(--ss-hl, #00ffff);
+            text-shadow: 0 0 8px var(--ss-hl, #00ffff);
+            box-shadow: 0 0 15px rgba(0,255,255,0.3),inset 0 0 10px rgba(0,255,255,0.2);
+            text-transform: uppercase; font-family: 'Orbitron', sans-serif;
+            cursor: pointer; transition: all 0.2s; outline: none; display: flex;
+            justify-content: center; align-items: center;
+        }
+        #ss-btn-title-start:hover { background: rgba(0,255,255,0.1); transform: scale(1.02); }
+        #ss-btn-title-start:active { transform: scale(0.98); }
+        #ss-ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; pointer-events: none; transition: opacity 1.5s ease; z-index: 10;
+        }
+        #ss-header {
+            padding: 20px 30px; display: flex; justify-content: space-between; align-items: center;
+        }
+        #ss-btn-back {
+            background: transparent; border: 1px solid rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.6); padding: 8px 16px; border-radius: 20px;
+            font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        #ss-btn-back:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+        .ss-core-info {
+            color: #0ff; font-size: 1.1rem; letter-spacing: 2px; font-weight: 700;
+            text-shadow: 0 0 10px rgba(0,255,255,0.8);
+        }
+        #ss-center-top-ui {
+            position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
+            pointer-events: none; z-index: 20; width: 350px;
+        }
+        #ss-stage-name-display {
+            font-size: 3rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase;
+            transition: color 0.3s, text-shadow 0.3s; margin-bottom: 5px;
+            color: var(--ss-hl, #00ffff);
+            text-shadow: 0 0 10px var(--ss-hl,#00ffff),0 0 20px var(--ss-hl,#00ffff);
+        }
+        #ss-ranking-container {
+            width: 100%; display: flex; flex-direction: column; gap: 8px;
+            font-size: 0.9rem; min-height: 160px;
+        }
+        .ss-ranking-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 20px; color: rgba(255,255,255,0.6); border: 1px solid transparent;
+            border-radius: 20px; opacity: 0;
+        }
+        .ss-ranking-row .ss-rank { width: 50px; text-align: right; margin-right: 20px; }
+        .ss-ranking-row .ss-score-wrapper {
+            flex-grow: 1; text-align: right; display: flex; justify-content: flex-end;
+            align-items: center; letter-spacing: 2px;
+        }
+        .ss-ranking-row.is-me {
+            color: #fff; font-weight: 900; background: rgba(0,0,0,0.6);
+            border: 1px solid var(--ss-hl,#00ffff);
+            box-shadow: 0 0 15px rgba(0,255,255,0.2),inset 0 0 10px rgba(0,255,255,0.15);
+            transform: scale(1.02); z-index: 2;
+        }
+        .ss-you-badge {
+            color: var(--ss-hl,#00ffff); margin-right: 15px; font-size: 0.85em;
+            letter-spacing: 1px; text-shadow: 0 0 5px var(--ss-hl,#00ffff);
+        }
+        @keyframes ss-fadeInRow {
+            0% { opacity:0; transform:translateX(-15px); }
+            100% { opacity:1; transform:translateX(0) scale(var(--ss-ts,1)); }
+        }
+        @keyframes ss-typeChar {
+            0% { opacity:0; transform:translateY(-3px); text-shadow:0 0 10px rgba(0,255,255,1); }
+            100% { opacity:1; transform:translateY(0); text-shadow:none; }
+        }
+        .ss-type-char { display: inline-block; opacity: 0; }
+        @keyframes ss-blink { 0%,100%{opacity:1;}50%{opacity:0.3;} }
+        #ss-bottom-controls {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; justify-content: space-between;
+            width: 350px; gap: 10px; pointer-events: none;
+        }
+        .ss-nav-btn {
+            width: 55px; height: 55px; flex-shrink: 0; font-size: 1.2rem; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.8); border: 1px solid #777; color: #fff;
+            font-family: 'Orbitron', sans-serif; cursor: pointer; transition: all 0.2s;
+            outline: none; pointer-events: auto; padding-bottom: 2px;
+        }
+        .ss-nav-btn:hover { border-color: #fff; transform: scale(1.05); }
+        .ss-nav-btn:active { transform: scale(0.95); }
+        #ss-btn-play {
+            flex-grow: 1; height: 55px; font-size: 1.4rem; font-weight: 700;
+            letter-spacing: 4px; border-radius: 30px; background: rgba(0,0,0,0.8);
+            border: 2px solid var(--ss-hl,#00ffff); color: var(--ss-hl,#00ffff);
+            text-shadow: 0 0 8px var(--ss-hl,#00ffff);
+            box-shadow: 0 0 15px rgba(0,255,255,0.3),inset 0 0 10px rgba(0,255,255,0.2);
+            font-family: 'Orbitron', sans-serif; cursor: pointer; transition: all 0.2s;
+            outline: none; pointer-events: auto; text-transform: uppercase;
+        }
+        #ss-btn-play:hover { background: rgba(0,255,255,0.1); transform: scale(1.02); }
+        #ss-btn-play:active { transform: scale(0.98); }
+        #ss-btn-play.ss-btn-locked {
+            border-color: #555 !important; color: #777 !important;
+            text-shadow: none !important; box-shadow: none !important; cursor: not-allowed !important;
+        }
+        #ss-btn-play.ss-btn-locked:hover { background: rgba(0,0,0,0.8) !important; transform: none !important; }
+        #ss-crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            transform: translate(-50%,-50%); border: 1px solid rgba(0,255,255,0.3);
+            border-radius: 50%; pointer-events: none; transition: all 0.2s;
+        }
+        #ss-fade-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100; opacity: 0; pointer-events: none;
+            transition: opacity 1s ease-in-out;
+        }
+        .ss-connecting-msg {
+            color: rgba(0,255,255,0.5); text-align: center; letter-spacing: 3px;
+            padding: 50px 0; font-size: 0.8rem; animation: ss-blink 1s infinite;
+        }
+        @media (max-width: 520px) {
+            #ss-center-top-ui { width: 300px; top: 28%; }
+            #ss-stage-name-display { font-size: 2rem; }
+            #ss-bottom-controls { width: 300px; }
+        }
     </style>
     <script type="importmap">
         {
@@ -370,16 +522,6 @@
             <div id="main-menu" class="menu-container">
                 <button id="btn-start-mission" class="btn-base">START MISSION</button>
                 <button id="btn-select-stage" class="btn-base">SELECT STAGE</button>
-            </div>
-            <div id="stage-select-menu" class="menu-container" style="display:none;">
-                <div style="font-size: var(--font-m); font-weight:700;">SELECT STAGE</div>
-                <div class="stage-selector">
-                    <button id="btn-stage-dec" class="btn-base btn-circle">‹</button>
-                    <input type="number" id="stage-input" class="stage-display" min="1" max="300" value="1" readonly>
-                    <button id="btn-stage-inc" class="btn-base btn-circle">›</button>
-                </div>
-                <button id="btn-go-stage" class="btn-base">LAUNCH</button>
-                <button id="btn-back-stage" class="btn-base btn-alert">BACK</button>
             </div>
             <div id="config-menu" class="menu-container" style="display:none;">
                 <div class="config-area">
@@ -401,7 +543,7 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v24</div>
+            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v25</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -522,6 +664,32 @@
                 <button id="btn-gameover-title" class="btn-base btn-alert">EXIT</button>
             </div>
         </div>
+    </div>
+
+    <!-- ===== STAGE SELECT 3D OVERLAY ===== -->
+    <div id="ss-overlay">
+        <div id="ss-fade-overlay"></div>
+        <div id="ss-canvas-container"></div>
+        <div id="ss-title-layer">
+            <div class="ss-title-logo">CYBER SLIDE</div>
+            <button id="ss-btn-title-start">START</button>
+        </div>
+        <div id="ss-ui-layer">
+            <div id="ss-header">
+                <button id="ss-btn-back">◄ BACK</button>
+                <div class="ss-core-info">CORE: <span id="ss-core-count">0</span> / 300</div>
+            </div>
+            <div id="ss-center-top-ui">
+                <div id="ss-stage-name-display">STAGE 1</div>
+                <div id="ss-ranking-container"></div>
+            </div>
+            <div id="ss-bottom-controls">
+                <button class="ss-nav-btn" id="ss-btn-prev">◄</button>
+                <button id="ss-btn-play">START</button>
+                <button class="ss-nav-btn" id="ss-btn-next">►</button>
+            </div>
+        </div>
+        <div id="ss-crosshair"></div>
     </div>
 
     <script type="module">
@@ -1552,10 +1720,17 @@
         }
 
         function returnToTitleFromGameover() {
-             setCinematicGlass(false);
-             const overlay = document.getElementById('game-over-overlay');
-             overlay.style.display = 'none';
-             showStartScreen();
+            setCinematicGlass(false);
+            const overlay = document.getElementById('game-over-overlay');
+            overlay.style.display = 'none';
+            if (isCampaignMode) {
+                document.getElementById('game-ui').style.display='none';
+                document.getElementById('ss-overlay').style.display='block';
+                stageSelect.syncUnlockedStage(maxUnlockedStage);
+                stageSelect.returnFromGame(false);
+            } else {
+                showStartScreen();
+            }
         }
 
         document.getElementById('btn-retry').addEventListener('click', retryStage);
@@ -1637,12 +1812,25 @@
             showInterstitialAd();
 
             await new Promise(r=>setTimeout(r,4000));
-            msg.style.opacity=0; 
-            await new Promise(r=>setTimeout(r,1000)); 
-            msg.style.display='none'; 
+            msg.style.opacity=0;
+            await new Promise(r=>setTimeout(r,1000));
+            msg.style.display='none';
             txt.style.opacity=0; sub.style.opacity=0; txt.style.transform='translateY(20px)';
-            
-            currentStage++; startStage(currentStage);
+
+            // Save personal best score for this stage
+            const _bk='cs_stage_best_'+currentStage;
+            const _pb=parseInt(localStorage.getItem(_bk))||0;
+            if(currentScore>_pb) localStorage.setItem(_bk,currentScore);
+            // Post to Playgama leaderboard if supported
+            if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
+                bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
+            }
+            // Return to stage select
+            isClearingStage=false; isProcessing=false;
+            document.getElementById('game-ui').style.display='none';
+            document.getElementById('ss-overlay').style.display='block';
+            stageSelect.syncUnlockedStage(maxUnlockedStage);
+            stageSelect.returnFromGame(true);
         }
 
         async function playGrandFinale() { 
@@ -1701,13 +1889,13 @@
             if (__cgSdk) __cgSdk.game.gameplayStop();
             if (_gameplayMessageSent && window.__PLATFORM === 'playgama' && typeof bridge !== 'undefined') { bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent = false; }
             gameActive=false; stopBGM();
+            document.getElementById('ss-overlay').style.display='none';
             document.getElementById('game-ui').style.display='none';
             setCinematicGlass(true, true);
             document.getElementById('title-content').style.display = 'flex';
             document.getElementById('btn-help-toggle').style.display = 'flex';
             document.getElementById('main-menu').style.display='flex';
             document.getElementById('config-menu').style.display='none';
-            document.getElementById('stage-select-menu').style.display='none';
 
             const saved = await loadProgress();
             if (editorTestMode) { editorTestMode = false; isCampaignMode = true; currentStage = 1; launchGame(); return; }
@@ -1718,35 +1906,8 @@
         }
 
         function showConfigMenu() { document.getElementById('main-menu').style.display='none'; document.getElementById('config-menu').style.display='flex'; }
-        function showStageSelectMenu() {
-            const maxAllowed = isBridgeStorageAvailable ? maxUnlockedStage : 300;
-            const input = document.getElementById('stage-input');
-            input.max = maxAllowed;
-            input.value = Math.min(parseInt(input.value) || 1, maxAllowed);
-            document.getElementById('main-menu').style.display='none';
-            document.getElementById('stage-select-menu').style.display='flex';
-        }
-
-        function changeStage(delta) {
-            const input = document.getElementById('stage-input');
-            const maxAllowed = isBridgeStorageAvailable ? maxUnlockedStage : 300;
-            let val = parseInt(input.value) + delta;
-            if(val < 1) val = 1; if(val > maxAllowed) val = maxAllowed;
-            input.value = val;
-        }
-        function attachStageEvents() {
-            const btnDec = document.getElementById('btn-stage-dec');
-            const btnInc = document.getElementById('btn-stage-inc');
-            const start = (delta) => { changeStage(delta); stageSelectTimer = setInterval(() => changeStage(delta), 100); };
-            const stop = () => { clearInterval(stageSelectTimer); };
-            btnDec.addEventListener('mousedown', () => start(-1)); btnDec.addEventListener('mouseup', stop); btnDec.addEventListener('mouseleave', stop);
-            btnDec.addEventListener('touchstart', (e) => { e.preventDefault(); start(-1); }); btnDec.addEventListener('touchend', stop);
-            btnInc.addEventListener('mousedown', () => start(1)); btnInc.addEventListener('mouseup', stop); btnInc.addEventListener('mouseleave', stop);
-            btnInc.addEventListener('touchstart', (e) => { e.preventDefault(); start(1); }); btnInc.addEventListener('touchend', stop);
-        }
 
         async function startCampaign() { isCampaignMode = true; const savedStage = await loadProgress(); currentStage = (savedStage >= 1 && savedStage <= 300) ? savedStage : 1; launchGame(); }
-        function goToStage() { isCampaignMode = true; const inputVal = parseInt(document.getElementById('stage-input').value); currentStage = Math.max(1, Math.min(300, inputVal)); launchGame(); }
         function startCustomGame() {
             isCampaignMode = false;
             const n = parseInt(document.getElementById('difficulty-select').value);
@@ -1807,15 +1968,13 @@
             const sVolV = document.getElementById('voice-volume'); for(let i=0; i<=100; i+=10) sVolV.add(new Option(`${i}%`, i, false, i===60)); 
             const sVolS = document.getElementById('sfx-volume'); for(let i=0; i<=100; i+=10) sVolS.add(new Option(`${i}%`, i, false, i===100)); 
 
-            document.getElementById('btn-start-mission').addEventListener('click', startCampaign);
+            document.getElementById('btn-start-mission').addEventListener('click', openStageSelect);
             document.getElementById('dev-settings-btn').addEventListener('click', showConfigMenu);
-            document.getElementById('btn-select-stage').addEventListener('click', showStageSelectMenu);
-            
+            document.getElementById('btn-select-stage').addEventListener('click', openStageSelect);
+
             document.getElementById('btn-back-menu').addEventListener('click', () => { document.getElementById('config-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
-            document.getElementById('btn-back-stage').addEventListener('click', () => { document.getElementById('stage-select-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
-            
+
             document.getElementById('btn-start-custom').addEventListener('click', startCustomGame);
-            document.getElementById('btn-go-stage').addEventListener('click', goToStage);
             document.getElementById('btn-reset').addEventListener('click', triggerBoardCollapse);
             document.getElementById('btn-title').addEventListener('click', showStartScreen);
             document.getElementById('btn-back-title').addEventListener('click', showStartScreen);
@@ -1823,7 +1982,6 @@
             document.getElementById('btn-help-toggle').addEventListener('click', () => document.getElementById('help-screen').style.display='flex');
             document.getElementById('btn-close-help').addEventListener('click', () => document.getElementById('help-screen').style.display='none');
             document.getElementById('btn-sound-toggle').addEventListener('click', toggleSound);
-            attachStageEvents();
         }
 
         function animate() {
@@ -1851,10 +2009,408 @@
             updateParticles(); updateEffects(); composer.render();
         }
 
+        // ===== STAGE SELECT INTEGRATION =====
+        window._ss_launchGame = function(stageIndex) {
+            isCampaignMode = true;
+            currentStage = stageIndex + 1;
+            currentScore = 0;
+            document.getElementById('ss-overlay').style.display = 'none';
+            launchGame();
+        };
+
+        async function openStageSelect() {
+            await loadProgress();
+            document.getElementById('title-content').style.display = 'none';
+            document.getElementById('btn-help-toggle').style.display = 'none';
+            document.getElementById('ss-overlay').style.display = 'block';
+            stageSelect.syncUnlockedStage(maxUnlockedStage);
+            stageSelect.show();
+        }
+
+        const stageSelect = (() => {
+            const STAGES_TOTAL = 300;
+            let unlockedStage = 0;
+            let targetFocusIndex = 0;
+            let appState = 'TITLE';
+            let ssActive = false;
+            let ssAnimating = false;
+
+            // Audio
+            const _AC = window.AudioContext || window.webkitAudioContext;
+            let _audioCtx = null, _bgmGain = null, _seGain = null;
+            let _bgmFilter = null, _bgmDelay = null;
+            let _soundOn = true, _audioInit = false;
+
+            function _initAudio() {
+                if (_audioInit) return;
+                _audioInit = true;
+                _audioCtx = new _AC();
+                _bgmGain = _audioCtx.createGain(); _bgmGain.gain.value = 0;
+                _bgmGain.connect(_audioCtx.destination);
+                _seGain = _audioCtx.createGain(); _seGain.gain.value = 0.5;
+                _seGain.connect(_audioCtx.destination);
+                _bgmDelay = _audioCtx.createDelay(5.0); _bgmDelay.delayTime.value = 1.5;
+                const fb = _audioCtx.createGain(); fb.gain.value = 0.6;
+                _bgmFilter = _audioCtx.createBiquadFilter(); _bgmFilter.type = 'lowpass'; _bgmFilter.frequency.value = 800;
+                _bgmDelay.connect(fb); fb.connect(_bgmFilter); _bgmFilter.connect(_bgmDelay); _bgmDelay.connect(_bgmGain);
+                function mkDrone(f,t,p){const o=_audioCtx.createOscillator(),g=_audioCtx.createGain(),pan=_audioCtx.createStereoPanner(),lfo=_audioCtx.createOscillator(),lg=_audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.05;pan.pan.value=p;lfo.type='sine';lfo.frequency.value=0.03+Math.random()*0.05;lg.gain.value=0.05;lfo.connect(lg);lg.connect(g.gain);o.connect(g);g.connect(pan);pan.connect(_bgmGain);pan.connect(_bgmDelay);o.start();lfo.start();}
+                mkDrone(87.31,'sine',-0.5);mkDrone(88,'sine',0.5);mkDrone(130.81,'triangle',0.2);
+                mkDrone(164.81,'sine',-0.3);mkDrone(196,'sine',0.6);mkDrone(246.94,'triangle',-0.6);mkDrone(329.63,'sine',0);
+                function bell(){if(!_soundOn||!_audioCtx)return;const o=_audioCtx.createOscillator(),g=_audioCtx.createGain();const sc=[523.25,587.33,659.25,783.99,880,1046.5,1174.66,1318.51];o.frequency.value=sc[Math.floor(Math.random()*sc.length)];o.type='sine';o.connect(g);g.connect(_bgmDelay);g.connect(_bgmGain);g.gain.setValueAtTime(0,_audioCtx.currentTime);g.gain.linearRampToValueAtTime(0.06,_audioCtx.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.001,_audioCtx.currentTime+1.5);o.start();o.stop(_audioCtx.currentTime+1.5);setTimeout(bell,Math.random()*4000+1000);}
+                setTimeout(bell, 1000);
+            }
+            function _ensureAudio(){if(!_audioInit)_initAudio();if(_audioCtx&&_audioCtx.state==='suspended')_audioCtx.resume();}
+            function _playNav(){_ensureAudio();const t=_audioCtx.currentTime,o=_audioCtx.createOscillator(),g=_audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(800,t);o.frequency.exponentialRampToValueAtTime(1200,t+0.05);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);o.connect(g);g.connect(_seGain);o.start(t);o.stop(t+0.1);}
+            function _playStart(){_ensureAudio();const t=_audioCtx.currentTime,o1=_audioCtx.createOscillator(),o2=_audioCtx.createOscillator(),g=_audioCtx.createGain();o1.type='square';o1.frequency.setValueAtTime(150,t);o1.frequency.exponentialRampToValueAtTime(600,t+0.15);o2.type='sawtooth';o2.frequency.setValueAtTime(200,t);o2.frequency.exponentialRampToValueAtTime(800,t+0.15);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.3,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o1.connect(g);o2.connect(g);g.connect(_seGain);o1.start(t);o1.stop(t+0.5);o2.start(t);o2.stop(t+0.5);}
+            function _playUnlock(){_ensureAudio();const t=_audioCtx.currentTime,o=_audioCtx.createOscillator(),g=_audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(400,t);o.frequency.exponentialRampToValueAtTime(1600,t+0.3);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+0.1);g.gain.exponentialRampToValueAtTime(0.001,t+1.0);o.connect(g);g.connect(_seGain);o.start(t);o.stop(t+1.0);}
+
+            // Leaderboard
+            async function _fetchRankings(stageIndex) {
+                const platform = window.__PLATFORM || 'itch';
+                const bestKey = 'cs_stage_best_' + (stageIndex + 1);
+                const pb = parseInt(localStorage.getItem(bestKey)) || 0;
+                if (platform === 'playgama' && typeof bridge !== 'undefined') {
+                    try {
+                        if (bridge.leaderboards && bridge.leaderboards.isSupported) {
+                            const entries = await bridge.leaderboards.getEntries('highscore', { withMe: true, around: 2 });
+                            if (entries && entries.length > 0) {
+                                return entries.map(e => ({ rank: e.rank, score: e.score, isMe: !!(e.isCurrentPlayer||e.isMe), name: e.name||'Player' }));
+                            }
+                        }
+                    } catch(e) {}
+                }
+                if (pb > 0) return [{ rank: 1, score: pb, isMe: true, name: 'YOU' }];
+                return [];
+            }
+
+            // Three.js scene
+            const _scene = new THREE.Scene();
+            _scene.fog = new THREE.FogExp2(0x000000, 0.0008);
+            const _cam = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 3000);
+            const _rdr = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            _rdr.setClearColor(0x000000, 0);
+            _rdr.setSize(window.innerWidth, window.innerHeight);
+            _rdr.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            const _rPass = new RenderPass(_scene, _cam);
+            const _bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            _bloom.threshold = 0.1; _bloom.strength = 1.5; _bloom.radius = 0.5;
+            const _comp = new EffectComposer(_rdr);
+            _comp.addPass(_rPass); _comp.addPass(_bloom);
+
+            function _mkGlowTex(){const c=document.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');const g=ctx.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(0.3,'rgba(255,255,255,0.8)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);}
+            const _glowTex = _mkGlowTex();
+
+            const _flare = new THREE.Sprite(new THREE.SpriteMaterial({map:_glowTex,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+            _flare.scale.set(20,20,1); _flare.visible=false; _scene.add(_flare);
+
+            const _PC=200, _pGeo=new THREE.BufferGeometry(), _pPos=new Float32Array(_PC*3), _pCol=new Float32Array(_PC*3), _pVel=[], _pLife=new Float32Array(_PC);
+            for(let i=0;i<_PC;i++){_pVel.push(new THREE.Vector3());_pLife[i]=0;}
+            _pGeo.setAttribute('position',new THREE.BufferAttribute(_pPos,3));
+            _pGeo.setAttribute('color',new THREE.BufferAttribute(_pCol,3));
+            const _pMesh=new THREE.Points(_pGeo,new THREE.PointsMaterial({size:2.0,vertexColors:true,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,map:_glowTex}));
+            _pMesh.visible=false; _scene.add(_pMesh);
+
+            const _bgPA=new Float32Array(15000*3),_bgCA=new Float32Array(15000*3);
+            for(let i=0;i<15000*3;i+=3){const r=500+Math.random()*500,th=Math.random()*Math.PI*2,ph=Math.acos(Math.random()*2-1);_bgPA[i]=r*Math.sin(ph)*Math.cos(th);_bgPA[i+1]=r*Math.cos(ph);_bgPA[i+2]=r*Math.sin(ph)*Math.sin(th);const mc=new THREE.Color();Math.random()>0.5?mc.setHex(0x0055aa):mc.setHex(0xaa00ff);_bgCA[i]=mc.r;_bgCA[i+1]=mc.g;_bgCA[i+2]=mc.b;}
+            const _bgGeo=new THREE.BufferGeometry();_bgGeo.setAttribute('position',new THREE.BufferAttribute(_bgPA,3));_bgGeo.setAttribute('color',new THREE.BufferAttribute(_bgCA,3));
+            const _bgPart=new THREE.Points(_bgGeo,new THREE.PointsMaterial({size:1.5,vertexColors:true,blending:THREE.AdditiveBlending,transparent:true,opacity:0.6,depthWrite:false}));
+            _scene.add(_bgPart);
+
+            // Stage nodes
+            const _nodes=[], _hits=[], _pathPts=[];
+            for(let i=0;i<STAGES_TOTAL;i++){
+                const t=i/(STAGES_TOTAL-1);
+                const lat=(t-0.5)*Math.PI+(Math.random()-0.5)*0.15;
+                const lon=t*12*Math.PI*2+(Math.random()-0.5)*0.15;
+                const r=400+(Math.random()-0.5)*40;
+                const x=r*Math.cos(lat)*Math.cos(lon),y=r*Math.sin(lat),z=r*Math.cos(lat)*Math.sin(lon);
+                const pos=new THREE.Vector3(x,y,z); _pathPts.push(pos);
+                const grp=new THREE.Group(); grp.position.copy(pos); grp.userData={id:i};
+                const core=new THREE.Mesh(new THREE.BoxGeometry(2.5,2.5,2.5),new THREE.MeshBasicMaterial({color:0xffffff}));
+                const shell=new THREE.Mesh(new THREE.BoxGeometry(5,5,5),new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:0.6}));
+                const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:_glowTex,color:0xffffff,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0.8}));
+                glow.scale.set(16,16,1); grp.add(core); grp.add(shell); grp.add(glow);
+                grp.userData.core=core; grp.userData.shell=shell; grp.userData.glow=glow;
+                const hb=new THREE.Mesh(new THREE.SphereGeometry(15,8,8),new THREE.MeshBasicMaterial({visible:false}));
+                hb.userData={id:i,group:grp}; grp.add(hb); _hits.push(hb);
+                _scene.add(grp); _nodes.push(grp);
+            }
+            const _pathGeo=new THREE.BufferGeometry().setFromPoints(_pathPts);
+            const _pathCols=new Float32Array(STAGES_TOTAL*3);
+            _pathGeo.setAttribute('color',new THREE.BufferAttribute(_pathCols,3));
+            _scene.add(new THREE.Line(_pathGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.8,blending:THREE.AdditiveBlending})));
+
+            function _updateColors(doFlash=false){
+                const cols=_pathGeo.attributes.color.array;
+                for(let i=0;i<STAGES_TOTAL;i++){
+                    const g=_nodes[i],core=g.userData.core,shell=g.userData.shell,glow=g.userData.glow;
+                    const isC=i<unlockedStage,isCur=i===unlockedStage,isL=i>unlockedStage;
+                    g.userData.isCurrent=isCur;
+                    const hue=(0.5+i*0.015)%1.0,sc=new THREE.Color().setHSL(hue,1.0,0.5);
+                    let cc,shc,gc,go;
+                    if(isC||isCur){cc=sc;shc=sc.clone().multiplyScalar(0.8);gc=sc;go=isCur?0.8:0.4;}
+                    else{cc=new THREE.Color(0x6688aa);shc=new THREE.Color(0x446688);gc=new THREE.Color(0x5588bb);go=0.35;}
+                    const bcc=cc.clone();if(isCur||isC)bcc.multiplyScalar(1.2);
+                    if(doFlash&&i===unlockedStage){let ft=0;const dur=60,s2=new THREE.Color(0xffffff);(function fa(){ft++;const r=Math.pow(ft/dur,1.5);core.material.color.copy(s2).lerp(bcc,r);shell.material.color.copy(s2).lerp(shc,r);glow.material.color.copy(s2).lerp(gc,r);glow.material.opacity=go;if(ft<dur)requestAnimationFrame(fa);})();}
+                    else{core.material.color.copy(bcc);shell.material.color.copy(shc);glow.material.color.copy(gc);glow.material.opacity=go;}
+                    shell.material.opacity=isL?0.45:0.6;
+                    if(i<=unlockedStage){const c=new THREE.Color().setHSL(hue,1.0,0.7);cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;}
+                    else{cols[i*3]=0.2;cols[i*3+1]=0.33;cols[i*3+2]=0.47;}
+                }
+                _pathGeo.attributes.color.needsUpdate=true;
+            }
+            _updateColors();
+
+            // Shooting stars
+            const _stars=[];
+            const _sMat=new THREE.LineBasicMaterial({color:0x88ddff,transparent:true,opacity:0.8});
+            for(let i=0;i<30;i++){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));const ln=new THREE.Line(geo,_sMat);_scene.add(ln);_stars.push({line:ln,pos:new THREE.Vector3(),vel:new THREE.Vector3(),life:0,reset(cp){this.pos.set(cp.x+(Math.random()-0.5)*300,cp.y+(Math.random()-0.5)*300+50,cp.z+(Math.random()-0.5)*300);this.vel.set((Math.random()-0.5)*2,(Math.random()-0.5)*2,(Math.random()-0.5)*2).normalize().multiplyScalar(3+Math.random()*4);this.life=20+Math.random()*50;}});}
+
+            const _vLookAt=new THREE.Vector3(), _camPos=new THREE.Vector3(), _curLookAt=new THREE.Vector3();
+
+            function _initCam(){if(_nodes[unlockedStage]){_vLookAt.copy(_nodes[unlockedStage].position);_camPos.set(0,100,1500);_curLookAt.set(0,0,0);_cam.position.copy(_camPos);_cam.lookAt(_curLookAt);}}
+            _initCam();
+
+            // DOM refs (assigned in init())
+            let _nameEl,_rankEl,_btnPlay,_crosshair,_titleLayer,_uiLayer,_canvasCont,_fadeOvl;
+            let _raycaster, _mouse, _hoverId=null, _ptrDown=false, _dragDist=0, _lastPtr={x:0,y:0};
+            let _rankFetchId=0;
+
+            function _animScore(el,text,delay=0){el.innerHTML='';String(text).split('').forEach((ch,i)=>{const sp=document.createElement('span');sp.textContent=ch;sp.className='ss-type-char';sp.style.animation=`ss-typeChar 0.15s forwards ${delay+i*0.04}s`;el.appendChild(sp);});}
+
+            async function _updateUI(){
+                if(!_nameEl)return;
+                const isC=targetFocusIndex<unlockedStage,isCur=targetFocusIndex===unlockedStage;
+                _nameEl.innerText=`STAGE ${targetFocusIndex+1}`;
+                _btnPlay.className='';
+                let colHex='#557799';
+                if(isC||isCur){
+                    const hue=(0.5+targetFocusIndex*0.015)%1.0;
+                    colHex='#'+new THREE.Color().setHSL(hue,1.0,0.6).getHexString();
+                    document.getElementById('ss-overlay').style.setProperty('--ss-hl',colHex);
+                    _btnPlay.innerText='START';
+                }else{_btnPlay.innerText='LOCKED';_btnPlay.classList.add('ss-btn-locked');}
+                _nameEl.style.color=colHex;
+                _nameEl.style.textShadow=(isC||isCur)?`0 0 10px ${colHex},0 0 20px ${colHex}`:'none';
+                _rankEl.innerHTML='<div class="ss-connecting-msg">CONNECTING...</div>';
+                const fid=++_rankFetchId;
+                const entries=await _fetchRankings(targetFocusIndex);
+                if(fid!==_rankFetchId)return;
+                _rankEl.innerHTML='';
+                if(entries.length===0){_rankEl.innerHTML='<div style="color:rgba(255,255,255,0.3);text-align:center;padding:30px 0;font-size:0.75rem;letter-spacing:2px;">NO DATA YET</div>';}
+                else{
+                    entries.forEach((e,ri)=>{
+                        const row=document.createElement('div');row.className='ss-ranking-row'+(e.isMe?' is-me':'');
+                        row.style.animation=`ss-fadeInRow 0.3s ease-out forwards ${ri*0.15}s`;
+                        row.style.setProperty('--ss-ts',e.isMe?'1.02':'1');
+                        const rs=document.createElement('span');rs.className='ss-rank';rs.innerText=e.rank||'--';
+                        const sw=document.createElement('span');sw.className='ss-score-wrapper';
+                        if(e.isMe){row.style.borderColor=colHex;row.style.boxShadow=`0 0 15px ${colHex}33,inset 0 0 10px ${colHex}22`;const yb=document.createElement('span');yb.className='ss-you-badge';yb.innerText='You';yb.style.color=colHex;yb.style.textShadow=`0 0 5px ${colHex}`;sw.appendChild(yb);}
+                        const nc=document.createElement('span');sw.appendChild(nc);
+                        row.appendChild(rs);row.appendChild(sw);_rankEl.appendChild(row);
+                        _animScore(nc,e.score,ri*0.15+0.2);
+                    });
+                }
+                _vLookAt.copy(_nodes[targetFocusIndex].position);
+            }
+
+            function _navigate(dir){const ni=Math.max(0,Math.min(STAGES_TOTAL-1,targetFocusIndex+dir));if(targetFocusIndex!==ni){targetFocusIndex=ni;_updateUI();_playNav();}}
+
+            const _bgThemes=[new THREE.Color(0x221133),new THREE.Color(0x112244),new THREE.Color(0x331122),new THREE.Color(0x113333),new THREE.Color(0x223311)];
+            const _curBg=_bgThemes[0].clone(),_tgtBg=_bgThemes[0].clone(),_edgeBg=new THREE.Color(0x000104);
+            const _clock=new THREE.Clock();
+
+            function _animate(){
+                if(!ssAnimating)return;
+                requestAnimationFrame(_animate);
+                const t=_clock.getElapsedTime();
+                const ti=Math.floor(targetFocusIndex/30)%_bgThemes.length;
+                _tgtBg.copy(_bgThemes[ti]);_curBg.lerp(_tgtBg,0.02);
+                const ssOvl=document.getElementById('ss-overlay');
+                if(ssOvl)ssOvl.style.backgroundColor='#'+_curBg.getHexString();
+                _scene.fog.color.copy(_edgeBg).lerp(_curBg,0.15);
+                if(appState==='TITLE'){
+                    const d=Math.max(600,1500-t*40);
+                    _camPos.lerp(new THREE.Vector3(Math.sin(t*0.05)*d,Math.sin(t*0.03)*300+100,Math.cos(t*0.05)*d),0.02);
+                    _curLookAt.lerp(new THREE.Vector3(0,0,0),0.05);
+                }else{
+                    const dir=_vLookAt.clone().normalize();if(dir.lengthSq()<0.001)dir.set(0,0,1);
+                    let up=new THREE.Vector3(0,1,0);if(Math.abs(dir.y)>0.98)up.set(1,0,0);
+                    const right=new THREE.Vector3().crossVectors(up,dir).normalize();
+                    const trueUp=new THREE.Vector3().crossVectors(dir,right).normalize();
+                    const flt=Math.sin(t*0.5)*5;
+                    let cdt=80,lf=0.06;
+                    if(appState==='ENTERING_STAGE'||appState==='IN_STAGE'){cdt=5;lf=0.03;}
+                    else if(appState==='EXITING_STAGE_CLEAR'||appState==='EXITING_STAGE_FAIL'){cdt=80;lf=0.03;}
+                    else if(appState==='ZOOMING_IN_FROM_TITLE'){cdt=80;lf=0.03;}
+                    const dest=_vLookAt.clone().add(dir.multiplyScalar(cdt+flt)).add(trueUp.multiplyScalar(10));
+                    _camPos.lerp(dest,lf);
+                    _curLookAt.lerp(_vLookAt.clone().add(trueUp.clone().multiplyScalar(-2)),lf);
+                }
+                _cam.position.copy(_camPos);_cam.lookAt(_curLookAt);
+                if(_bgmFilter&&_bgmGain&&_audioCtx){
+                    const d=_curLookAt.distanceTo(_vLookAt);
+                    _bgmFilter.frequency.setTargetAtTime(800+Math.min(d*80,4000),_audioCtx.currentTime,0.1);
+                    if(appState==='SELECT'||appState==='ZOOMING_IN_FROM_TITLE')_bgmGain.gain.setTargetAtTime(0.4+Math.min(d*0.006,0.4),_audioCtx.currentTime,0.1);
+                }
+                if(appState!=='TITLE'&&_nodes[targetFocusIndex]){
+                    const tnp=_nodes[targetFocusIndex].position;
+                    _flare.position.lerp(tnp,0.3);const fs=12+Math.sin(t*15)*3;_flare.scale.set(fs,fs,1);
+                    const isCl=targetFocusIndex<unlockedStage,isCur=targetFocusIndex===unlockedStage;
+                    const bc=(isCl||isCur)?new THREE.Color().setHSL((0.5+targetFocusIndex*0.015)%1.0,1.0,0.5):new THREE.Color(0x335577);
+                    _flare.material.color.copy(bc);
+                    const pp=_pGeo.attributes.position.array,pc=_pGeo.attributes.color.array;
+                    for(let i=0;i<_PC;i++){
+                        if(_pLife[i]<=0){pp[i*3]=_flare.position.x+(Math.random()-0.5)*3;pp[i*3+1]=_flare.position.y+(Math.random()-0.5)*3;pp[i*3+2]=_flare.position.z+(Math.random()-0.5)*3;const n=tnp.clone().normalize();_pVel[i].copy(n).multiplyScalar(0.2+Math.random()*0.3).add(new THREE.Vector3((Math.random()-0.5)*0.5,(Math.random()-0.5)*0.5,(Math.random()-0.5)*0.5));_pLife[i]=Math.random()*40+20;}
+                        pp[i*3]+=_pVel[i].x;pp[i*3+1]+=_pVel[i].y;pp[i*3+2]+=_pVel[i].z;
+                        const n2=new THREE.Vector3(pp[i*3],pp[i*3+1],pp[i*3+2]).normalize();_pVel[i].add(n2.multiplyScalar(0.01));
+                        _pLife[i]--;const lr=Math.max(0,_pLife[i]/60);pc[i*3]=bc.r*lr;pc[i*3+1]=bc.g*lr;pc[i*3+2]=bc.b*lr;
+                    }
+                    _pGeo.attributes.position.needsUpdate=true;_pGeo.attributes.color.needsUpdate=true;
+                }
+                _bgPart.rotation.y=t*0.005;
+                for(let i=0;i<_nodes.length;i++){
+                    const g=_nodes[i],s=g.userData.shell,c=g.userData.core;
+                    s.rotation.x+=0.01;s.rotation.y+=0.015;c.rotation.x-=0.02;c.rotation.y-=0.01;
+                    if(g.userData.isCurrent){const p=1+Math.sin(t*5)*0.15;c.scale.set(p,p,p);}
+                    if(appState==='SELECT')s.scale.lerp(_hoverId===i?new THREE.Vector3(1.3,1.3,1.3):new THREE.Vector3(1,1,1),0.1);
+                }
+                for(let i=0;i<_stars.length;i++){
+                    const s=_stars[i];if(s.life<=0)s.reset(_camPos);s.life--;s.pos.add(s.vel);
+                    const tail=s.pos.clone().sub(s.vel.clone().multiplyScalar(8));
+                    const pa=s.line.geometry.attributes.position.array;
+                    pa[0]=s.pos.x;pa[1]=s.pos.y;pa[2]=s.pos.z;pa[3]=tail.x;pa[4]=tail.y;pa[5]=tail.z;
+                    s.line.geometry.attributes.position.needsUpdate=true;
+                    s.line.material.opacity=Math.max(0,s.life/60)*0.8;
+                }
+                _comp.render();
+            }
+
+            // Public API
+            return {
+                isActive(){ return ssActive; },
+
+                init(){
+                    _nameEl=document.getElementById('ss-stage-name-display');
+                    _rankEl=document.getElementById('ss-ranking-container');
+                    _btnPlay=document.getElementById('ss-btn-play');
+                    _crosshair=document.getElementById('ss-crosshair');
+                    _titleLayer=document.getElementById('ss-title-layer');
+                    _uiLayer=document.getElementById('ss-ui-layer');
+                    _canvasCont=document.getElementById('ss-canvas-container');
+                    _fadeOvl=document.getElementById('ss-fade-overlay');
+                    _raycaster=new THREE.Raycaster(); _mouse=new THREE.Vector2();
+                    if(!_canvasCont.contains(_rdr.domElement)) _canvasCont.appendChild(_rdr.domElement);
+
+                    // Animate title logo
+                    const logo=document.querySelector('.ss-title-logo');
+                    if(logo){const txt=logo.innerText;logo.innerHTML='';txt.split('').forEach((ch,i)=>{if(ch===' '){const sp=document.createElement('span');sp.innerHTML='&nbsp;';logo.appendChild(sp);}else{const sp=document.createElement('span');sp.textContent=ch;sp.className='ss-title-char';sp.style.animationDelay=`${i*0.2}s`;logo.appendChild(sp);}});}
+
+                    // Events
+                    document.getElementById('ss-btn-title-start').addEventListener('click',()=>{
+                        _ensureAudio();if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,0.5);
+                        _playStart();appState='ZOOMING_IN_FROM_TITLE';_flare.visible=true;_pMesh.visible=true;
+                        _titleLayer.style.opacity='0';_titleLayer.style.pointerEvents='none';_canvasCont.style.filter='blur(0px)';
+                        setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},2500);
+                    });
+                    document.getElementById('ss-btn-back').addEventListener('click',()=>{
+                        if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,0.5);
+                        document.getElementById('ss-overlay').style.display='none';
+                        ssActive=false;ssAnimating=false;
+                        showStartScreen();
+                    });
+                    document.getElementById('ss-btn-prev').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(-1);});
+                    document.getElementById('ss-btn-next').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(1);});
+                    document.getElementById('ss-btn-play').addEventListener('click',()=>{
+                        if(!ssActive||appState!=='SELECT')return;
+                        if(targetFocusIndex>unlockedStage)return;
+                        _playStart();appState='ENTERING_STAGE';
+                        _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
+                        if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,1.0);
+                        setTimeout(()=>_fadeOvl.style.opacity='1',800);
+                        setTimeout(()=>{appState='IN_STAGE';ssAnimating=false;window._ss_launchGame(targetFocusIndex);},1800);
+                    });
+                    window.addEventListener('pointerdown',(e)=>{
+                        if(!ssActive||appState!=='SELECT')return;
+                        if(e.target.tagName==='BUTTON')return;
+                        _ptrDown=true;_dragDist=0;_lastPtr.x=e.clientX;_lastPtr.y=e.clientY;
+                    });
+                    window.addEventListener('pointermove',(e)=>{
+                        if(!ssActive||appState!=='SELECT')return;
+                        _mouse.x=(e.clientX/window.innerWidth)*2-1;_mouse.y=-(e.clientY/window.innerHeight)*2+1;
+                        _raycaster.setFromCamera(_mouse,_cam);
+                        const hits=_raycaster.intersectObjects(_hits);
+                        if(hits.length>0){const id=hits[0].object.userData.id;if(_hoverId!==id){_hoverId=id;if(_crosshair)_crosshair.style.borderColor='rgba(0,255,255,1)';}}
+                        else if(_hoverId!==null){_hoverId=null;if(_crosshair)_crosshair.style.borderColor='rgba(0,255,255,0.3)';}
+                        if(_ptrDown){const dx=e.clientX-_lastPtr.x,dy=e.clientY-_lastPtr.y;_dragDist+=Math.sqrt(dx*dx+dy*dy);const vR=new THREE.Vector3(1,0,0).applyQuaternion(_cam.quaternion);const vU=new THREE.Vector3(0,1,0).applyQuaternion(_cam.quaternion);_vLookAt.add(vR.multiplyScalar(-dx*0.5));_vLookAt.add(vU.multiplyScalar(dy*0.5));_lastPtr.x=e.clientX;_lastPtr.y=e.clientY;}
+                    });
+                    window.addEventListener('pointerup',(e)=>{
+                        if(!ssActive||appState!=='SELECT')return;
+                        if(!_ptrDown)return;_ptrDown=false;
+                        if(_dragDist<10&&_hoverId!==null&&targetFocusIndex!==_hoverId){targetFocusIndex=_hoverId;_updateUI();_playNav();}
+                    });
+                    window.addEventListener('wheel',(e)=>{if(!ssActive||appState!=='SELECT')return;_navigate(e.deltaY>0?1:-1);});
+                    window.addEventListener('keydown',(e)=>{
+                        if(!ssActive||appState!=='SELECT')return;
+                        if(['ArrowUp','w','ArrowRight'].includes(e.key))_navigate(1);
+                        if(['ArrowDown','s','ArrowLeft'].includes(e.key))_navigate(-1);
+                        if(['Enter',' '].includes(e.key)){e.preventDefault();document.getElementById('ss-btn-play').click();}
+                    });
+                    window.addEventListener('resize',()=>{
+                        _cam.aspect=window.innerWidth/window.innerHeight;_cam.updateProjectionMatrix();
+                        _rdr.setSize(window.innerWidth,window.innerHeight);_comp.setSize(window.innerWidth,window.innerHeight);
+                    });
+                },
+
+                syncUnlockedStage(maxVal){
+                    unlockedStage=Math.max(0,maxVal-1);
+                    targetFocusIndex=unlockedStage;
+                    const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                    _updateColors();_initCam();
+                },
+
+                show(){
+                    ssActive=true;_ensureAudio();
+                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,0.5);
+                    _fadeOvl.style.opacity='0';
+                    _titleLayer.style.opacity='0';_titleLayer.style.pointerEvents='none';
+                    _canvasCont.style.filter='blur(0px)';
+                    _flare.visible=true;_pMesh.visible=true;
+                    appState='ZOOMING_IN_FROM_TITLE';
+                    _clock.start();
+                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
+                    if(!ssAnimating){ssAnimating=true;_animate();}
+                },
+
+                returnFromGame(isClear){
+                    ssActive=true;_ensureAudio();
+                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
+                    _fadeOvl.style.opacity='0';
+                    if(isClear){
+                        appState='EXITING_STAGE_CLEAR';
+                        const newUnlock=targetFocusIndex===unlockedStage&&unlockedStage<STAGES_TOTAL-1;
+                        setTimeout(()=>{
+                            if(newUnlock){
+                                unlockedStage++;const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                                appState='UNLOCKING_NEXT';_playUnlock();_updateColors(true);
+                                setTimeout(()=>{targetFocusIndex=unlockedStage;_vLookAt.copy(_nodes[targetFocusIndex].position);
+                                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);},1000);
+                            }else{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();}
+                        },1500);
+                    }else{
+                        appState='EXITING_STAGE_FAIL';
+                        setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
+                    }
+                    if(!ssAnimating){ssAnimating=true;_animate();}
+                }
+            };
+        })();
+
         window.addEventListener('load', () => {
             try {
                 initSDK();
                 setupThreeJS(); setupUI();
+                stageSelect.init();
                 const d=document.body;
                 d.addEventListener('mousedown', onPointerDown); document.addEventListener('mousemove', onPointerMove); window.addEventListener('mouseup', endDrag);
                 d.addEventListener('touchstart', onTouchStart, {passive: false}); d.addEventListener('touchmove', onTouchMove, {passive: false}); window.addEventListener('touchend', endDrag);
