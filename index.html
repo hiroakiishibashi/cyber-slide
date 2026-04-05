@@ -2362,13 +2362,20 @@
                 // Unlock this specific stage (non-sequential)
                 saveUnlock(targetFocusIndex+1);
                 _lastUnlockedIdx=targetFocusIndex;
-                // Play unlock animation
+                // Unlock animation → immediately start stage
                 _spawnUnlockParticles();
                 _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
                 appState='UNLOCKING_NEXT';_playUnlock();_updateColors(true);
                 setTimeout(()=>{
                     _vLookAt.copy(_nodes[targetFocusIndex].position);
-                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
+                    // After unlock flash settles, launch stage start sequence
+                    setTimeout(()=>{
+                        _playStart();
+                        appState='ENTERING_STAGE';
+                        if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,1.0);
+                        setTimeout(()=>_fadeOvl.style.opacity='1',800);
+                        setTimeout(()=>{appState='IN_STAGE';ssAnimating=false;window._ss_launchGame(targetFocusIndex);},1800);
+                    },1000);
                 },1000);
             }
 
