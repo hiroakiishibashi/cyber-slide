@@ -524,10 +524,53 @@
         #ss-btn-play:hover { background: rgba(0,255,255,0.1); transform: scale(1.02); }
         #ss-btn-play:active { transform: scale(0.98); }
         #ss-btn-play.ss-btn-locked {
-            border-color: #555 !important; color: #777 !important;
+            border-color: rgba(80,80,110,0.9) !important; color: rgba(160,160,190,0.9) !important;
+            text-shadow: none !important; box-shadow: none !important; cursor: pointer !important;
+        }
+        #ss-btn-play.ss-btn-locked:hover { background: rgba(80,80,110,0.15) !important; transform: scale(1.02) !important; }
+        #ss-btn-play.ss-btn-locked-far {
+            border-color: #444 !important; color: rgba(100,100,120,0.7) !important;
             text-shadow: none !important; box-shadow: none !important; cursor: not-allowed !important;
         }
-        #ss-btn-play.ss-btn-locked:hover { background: rgba(0,0,0,0.8) !important; transform: none !important; }
+        #ss-btn-play.ss-btn-locked-far:hover { background: rgba(0,0,0,0.8) !important; transform: none !important; }
+        #ss-unlock-cost-label {
+            font-size: 0.65rem; letter-spacing: 2px; color: rgba(0,255,255,0.5);
+            font-family: 'Orbitron',sans-serif; text-align: center;
+            min-height: 16px;
+        }
+        #ss-unlock-dialog {
+            position: absolute; bottom: 185px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,5,20,0.95); border: 1px solid rgba(0,255,255,0.35);
+            border-radius: 16px; padding: 22px 28px; z-index: 50;
+            flex-direction: column; align-items: center; gap: 14px;
+            min-width: 280px; text-align: center;
+            box-shadow: 0 0 30px rgba(0,255,255,0.15),0 0 60px rgba(0,0,0,0.8);
+            font-family: 'Orbitron', sans-serif;
+        }
+        #ss-unlock-dialog-title {
+            font-size: 0.85rem; letter-spacing: 3px; color: #fff; font-weight: 700;
+        }
+        #ss-unlock-dialog-info {
+            font-size: 0.72rem; letter-spacing: 1px; color: rgba(255,255,255,0.6);
+            line-height: 1.7; white-space: pre-line;
+        }
+        #ss-unlock-dialog-btns {
+            display: flex; gap: 12px; width: 100%; margin-top: 4px;
+        }
+        #ss-btn-unlock-yes {
+            flex: 1; padding: 10px 0; border-radius: 20px;
+            border: 1px solid var(--ss-hl,#00ffff); color: var(--ss-hl,#00ffff);
+            background: transparent; font-family: 'Orbitron',sans-serif;
+            font-size: 0.75rem; letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
+        }
+        #ss-btn-unlock-yes:hover { background: rgba(0,255,255,0.12); }
+        #ss-btn-unlock-no {
+            flex: 1; padding: 10px 0; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.45);
+            background: transparent; font-family: 'Orbitron',sans-serif;
+            font-size: 0.75rem; letter-spacing: 2px; cursor: pointer; transition: all 0.2s;
+        }
+        #ss-btn-unlock-no:hover { background: rgba(255,255,255,0.05); }
         #ss-crosshair {
             position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
             transform: translate(-50%,-50%); border: 1px solid rgba(0,255,255,0.3);
@@ -745,12 +788,21 @@
                 <div id="ss-ranking-container"></div>
             </div>
             <div id="ss-bottom-controls">
-                <div id="ss-core-above-play">CORE: <span id="ss-core-count">0</span> / 300</div>
+                <div id="ss-core-above-play">CORE: <span id="ss-core-count">0</span></div>
                 <div id="ss-nav-row">
                     <button class="ss-nav-btn" id="ss-btn-prev">◄</button>
                     <button id="ss-btn-play">START</button>
                     <button class="ss-nav-btn" id="ss-btn-next">►</button>
                 </div>
+                <div id="ss-unlock-cost-label" style="display:none;"></div>
+            </div>
+        </div>
+        <div id="ss-unlock-dialog" style="display:none;">
+            <div id="ss-unlock-dialog-title"></div>
+            <div id="ss-unlock-dialog-info"></div>
+            <div id="ss-unlock-dialog-btns">
+                <button id="ss-btn-unlock-yes">UNLOCK</button>
+                <button id="ss-btn-unlock-no">CANCEL</button>
             </div>
         </div>
         <div id="ss-crosshair"></div>
@@ -828,6 +880,8 @@
         let isSoundMuted = false;
         let isAdPlaying = false;
         let maxUnlockedStage = 1;
+        let totalCores = 0;
+        const CORES_KEY = 'cs_total_cores';
         let stageDataArray = null;
         let isBridgeStorageAvailable = false;
         let editorTestMode = false;
@@ -963,6 +1017,37 @@
             }
         }
 
+        async function saveTotalCores() {
+            const val = String(totalCores);
+            if(typeof bridge !== 'undefined' && bridge.storage) {
+                bridge.storage.set(CORES_KEY, val).catch(()=>localStorage.setItem(CORES_KEY, val));
+            } else {
+                localStorage.setItem(CORES_KEY, val);
+            }
+        }
+
+        async function loadTotalCores() {
+            let val;
+            if(typeof bridge !== 'undefined' && bridge.storage) {
+                try { val = await bridge.storage.get(CORES_KEY); }
+                catch(e) { val = localStorage.getItem(CORES_KEY); }
+            } else {
+                val = localStorage.getItem(CORES_KEY);
+            }
+            totalCores = parseInt(val) || 0;
+        }
+
+        function saveUnlock(newMaxStage) {
+            if(newMaxStage <= maxUnlockedStage) return;
+            maxUnlockedStage = newMaxStage;
+            const val = String(maxUnlockedStage);
+            if(typeof bridge !== 'undefined' && bridge.storage) {
+                bridge.storage.set(SAVE_KEY, val).catch(()=>localStorage.setItem(SAVE_KEY, val));
+            } else {
+                localStorage.setItem(SAVE_KEY, val);
+            }
+        }
+
         async function loadStageData() {
             // Editor test override: stage editor injects a single test stage via localStorage
             const testOverride = localStorage.getItem('cyberslide_editor_test');
@@ -1007,6 +1092,7 @@
                 val = localStorage.getItem(SAVE_KEY);
             }
             maxUnlockedStage = parseInt(val) || 1;
+            await loadTotalCores();
             return maxUnlockedStage;
         }
 
@@ -1848,9 +1934,11 @@
             const startScore = currentScore; currentScore += turnBonus;
             const startTurns = remainingTurns;
             
-            const prevMax = maxUnlockedStage;
-            if(isCampaignMode) { saveProgress(currentStage); trySocialPrompt(currentStage); }
-            const didUnlockNew = maxUnlockedStage > prevMax;
+            if(isCampaignMode) {
+                totalCores += clearedSpecialCount;
+                saveTotalCores();
+                trySocialPrompt(currentStage);
+            }
             if (__cgSdk) __cgSdk.game.happytime();
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
@@ -1881,7 +1969,7 @@
             }
             // Set dynamic stage clear message
             txt.innerText = 'STAGE CLEAR';
-            sub.innerText = isNewHighScore ? 'NEW HIGH SCORE!' : (didUnlockNew ? 'Next Sector Unlocked' : 'Stage Complete');
+            sub.innerText = isNewHighScore ? 'NEW HIGH SCORE!' : `+${clearedSpecialCount} CORE`;
 
             setCinematicGlass(true);
             await new Promise(r => safeTimeout(r, 1000));
@@ -2135,7 +2223,7 @@
             document.getElementById('title-content').style.display = 'none';
             document.getElementById('btn-help-toggle').style.display = 'none';
             document.getElementById('ss-overlay').style.display = 'block';
-            stageSelect.syncUnlockedStage(maxUnlockedStage);
+            stageSelect.syncUnlockedStage(maxUnlockedStage, totalCores);
             stageSelect.show();
         }
 
@@ -2175,6 +2263,72 @@
             function _playNav(){_ensureAudio();const t=_audioCtx.currentTime,o=_audioCtx.createOscillator(),g=_audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(800,t);o.frequency.exponentialRampToValueAtTime(1200,t+0.05);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);o.connect(g);g.connect(_seGain);o.start(t);o.stop(t+0.1);}
             function _playStart(){_ensureAudio();const t=_audioCtx.currentTime,o1=_audioCtx.createOscillator(),o2=_audioCtx.createOscillator(),g=_audioCtx.createGain();o1.type='square';o1.frequency.setValueAtTime(150,t);o1.frequency.exponentialRampToValueAtTime(600,t+0.15);o2.type='sawtooth';o2.frequency.setValueAtTime(200,t);o2.frequency.exponentialRampToValueAtTime(800,t+0.15);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.3,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o1.connect(g);o2.connect(g);g.connect(_seGain);o1.start(t);o1.stop(t+0.5);o2.start(t);o2.stop(t+0.5);}
             function _playUnlock(){_ensureAudio();const t=_audioCtx.currentTime,o=_audioCtx.createOscillator(),g=_audioCtx.createGain();o.type='sine';o.frequency.setValueAtTime(400,t);o.frequency.exponentialRampToValueAtTime(1600,t+0.3);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+0.1);g.gain.exponentialRampToValueAtTime(0.001,t+1.0);o.connect(g);g.connect(_seGain);o.start(t);o.stop(t+1.0);}
+
+            function _spawnUnlockParticles(){
+                const btn=document.getElementById('ss-btn-play');
+                if(!btn)return;
+                const rect=btn.getBoundingClientRect();
+                const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+                const hue=(0.5+targetFocusIndex*0.015)%1.0;
+                const color='#'+new THREE.Color().setHSL(hue,1,0.6).getHexString();
+                for(let i=0;i<16;i++){
+                    const el=document.createElement('div');
+                    const size=6+Math.random()*8;
+                    el.style.cssText=`position:fixed;left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;border-radius:50%;background:${color};z-index:300;pointer-events:none;box-shadow:0 0 ${size*2}px ${color};`;
+                    document.body.appendChild(el);
+                    const angle=(i/16)*Math.PI*2+Math.random()*0.4;
+                    const dist=50+Math.random()*80;
+                    const dx=Math.cos(angle)*dist, dy=Math.sin(angle)*dist;
+                    el.animate([
+                        {transform:'translate(-50%,-50%) scale(1)',opacity:1},
+                        {transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(0)`,opacity:0}
+                    ],{duration:700+Math.random()*400,easing:'ease-out',fill:'forwards'}).onfinish=()=>el.remove();
+                }
+            }
+
+            function _showUnlockDialog(){
+                const stageNum=targetFocusIndex+1;
+                const cost=Math.floor(targetFocusIndex/10)+1;
+                const dlg=document.getElementById('ss-unlock-dialog');
+                const title=document.getElementById('ss-unlock-dialog-title');
+                const info=document.getElementById('ss-unlock-dialog-info');
+                const yesBtn=document.getElementById('ss-btn-unlock-yes');
+                if(!dlg)return;
+                title.innerText=`UNLOCK STAGE ${stageNum}`;
+                if(totalCores>=cost){
+                    info.innerText=`Spend ${cost} CORE to unlock?\nYou have: ${totalCores} CORE`;
+                    yesBtn.style.display='';
+                    yesBtn.innerText=`SPEND ${cost} CORE`;
+                }else{
+                    const need=cost-totalCores;
+                    info.innerText=`Need ${cost} CORE to unlock.\n${need} more CORE required.\nYou have: ${totalCores} CORE`;
+                    yesBtn.style.display='none';
+                }
+                dlg.style.display='flex';
+            }
+
+            function _doUnlock(){
+                const cost=Math.floor(targetFocusIndex/10)+1;
+                if(totalCores<cost)return;
+                const dlg=document.getElementById('ss-unlock-dialog');
+                if(dlg)dlg.style.display='none';
+                totalCores-=cost;
+                saveTotalCores();
+                const coreEl=document.getElementById('ss-core-count');
+                if(coreEl)coreEl.innerText=totalCores;
+                // Unlock the stage
+                saveUnlock(targetFocusIndex+1);
+                unlockedStage=targetFocusIndex;
+                _updateColors();
+                // Play unlock animation
+                _spawnUnlockParticles();
+                _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
+                appState='UNLOCKING_NEXT';_playUnlock();_updateColors(true);
+                setTimeout(()=>{
+                    _vLookAt.copy(_nodes[targetFocusIndex].position);
+                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
+                },1000);
+            }
 
             // Leaderboard
             async function _fetchRankings(stageIndex) {
@@ -2296,12 +2450,25 @@
                 _nameEl.innerText=`STAGE ${targetFocusIndex+1}`;
                 _btnPlay.className='';
                 let colHex='#557799';
+                const costLabel=document.getElementById('ss-unlock-cost-label');
                 if(isC||isCur){
                     const hue=(0.5+targetFocusIndex*0.015)%1.0;
                     colHex='#'+new THREE.Color().setHSL(hue,1.0,0.6).getHexString();
                     document.getElementById('ss-overlay').style.setProperty('--ss-hl',colHex);
                     _btnPlay.innerText='START';
-                }else{_btnPlay.innerText='LOCKED';_btnPlay.classList.add('ss-btn-locked');}
+                    if(costLabel){costLabel.style.display='none';}
+                }else{
+                    _btnPlay.innerText='LOCKED';
+                    const isNextStage=(targetFocusIndex===unlockedStage+1);
+                    if(isNextStage){
+                        _btnPlay.classList.add('ss-btn-locked');
+                        const cost=Math.floor(targetFocusIndex/10)+1;
+                        if(costLabel){costLabel.innerText=`CORE: -${cost}`;costLabel.style.display='block';}
+                    }else{
+                        _btnPlay.classList.add('ss-btn-locked-far');
+                        if(costLabel){costLabel.style.display='none';}
+                    }
+                }
                 _nameEl.style.color=colHex;
                 _nameEl.style.textShadow=(isC||isCur)?`0 0 10px ${colHex},0 0 20px ${colHex}`:'none';
                 _rankEl.innerHTML='<div class="ss-connecting-msg">CONNECTING...</div>';
@@ -2449,7 +2616,10 @@
                     })();
                     document.getElementById('ss-btn-play').addEventListener('click',()=>{
                         if(!ssActive||appState!=='SELECT')return;
-                        if(targetFocusIndex>unlockedStage)return;
+                        if(targetFocusIndex>unlockedStage){
+                            if(targetFocusIndex===unlockedStage+1) _showUnlockDialog();
+                            return;
+                        }
                         _playStart();appState='ENTERING_STAGE';
                         _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
                         if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,1.0);
@@ -2497,13 +2667,20 @@
                         document.getElementById('ss-overlay').style.display='none';
                         showStartScreen();
                     });
+                    // Unlock dialog buttons
+                    document.getElementById('ss-btn-unlock-yes').addEventListener('click',()=>_doUnlock());
+                    document.getElementById('ss-btn-unlock-no').addEventListener('click',()=>{
+                        const dlg=document.getElementById('ss-unlock-dialog');
+                        if(dlg)dlg.style.display='none';
+                    });
                 },
 
-                syncUnlockedStage(maxVal){
+                syncUnlockedStage(maxVal, cores){
                     // Only update internal state (do NOT move targetFocusIndex here —
                     // returnFromGame needs targetFocusIndex to know which stage was just played)
                     unlockedStage=Math.max(0,maxVal-1);
-                    const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                    const el=document.getElementById('ss-core-count');
+                    if(el) el.innerText=typeof cores==='number'?cores:totalCores;
                     _updateColors();
                 },
 
@@ -2546,7 +2723,7 @@
                         const newUS=Math.max(0,gameMaxUnlocked-1);
                         if(newUS!==unlockedStage){
                             unlockedStage=newUS;
-                            const el=document.getElementById('ss-core-count');if(el)el.innerText=unlockedStage;
+                            const el=document.getElementById('ss-core-count');if(el)el.innerText=totalCores;
                         }
                     }
                     // Fade in: start black, then reveal starfield
@@ -2599,7 +2776,7 @@
                     await loadProgress();
                     document.getElementById('loading-screen').style.display='none';
                     document.getElementById('ss-overlay').style.display='block';
-                    stageSelect.syncUnlockedStage(maxUnlockedStage);
+                    stageSelect.syncUnlockedStage(maxUnlockedStage, totalCores);
                     stageSelect.showTitle();
                     if (__cgSdk) __cgSdk.game.loadingStop();
                 }, 1000);
