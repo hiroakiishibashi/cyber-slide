@@ -520,6 +520,8 @@
             box-shadow: 0 0 15px rgba(0,255,255,0.3),inset 0 0 10px rgba(0,255,255,0.2);
             font-family: 'Orbitron', sans-serif; cursor: pointer; transition: all 0.2s;
             outline: none; pointer-events: auto; text-transform: uppercase;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            gap: 2px; padding: 0;
         }
         #ss-btn-play:hover { background: rgba(0,255,255,0.1); transform: scale(1.02); }
         #ss-btn-play:active { transform: scale(0.98); }
@@ -533,6 +535,17 @@
             text-shadow: none !important; box-shadow: none !important; cursor: not-allowed !important;
         }
         #ss-btn-play.ss-btn-locked-far:hover { background: rgba(0,0,0,0.8) !important; transform: none !important; }
+        #ss-btn-watch-ad {
+            width: 100%; padding: 9px 0; border-radius: 25px; pointer-events: auto;
+            background: linear-gradient(135deg, rgba(255,160,0,0.9), rgba(220,60,0,0.9));
+            border: 1px solid rgba(255,200,0,0.7); color: #fff;
+            font-family: 'Orbitron',sans-serif; font-size: 0.68rem; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s; outline: none;
+            text-shadow: 0 0 8px rgba(255,220,0,0.6);
+            box-shadow: 0 0 18px rgba(255,130,0,0.45),inset 0 0 10px rgba(255,200,0,0.15);
+        }
+        #ss-btn-watch-ad:hover { transform: scale(1.03); box-shadow: 0 0 28px rgba(255,130,0,0.65); }
+        #ss-btn-watch-ad:disabled { opacity: 0.5; cursor: wait; transform: none; }
         #ss-unlock-cost-label {
             font-size: 0.65rem; letter-spacing: 2px; color: rgba(0,255,255,0.5);
             font-family: 'Orbitron',sans-serif; text-align: center;
@@ -788,6 +801,7 @@
                 <div id="ss-ranking-container"></div>
             </div>
             <div id="ss-bottom-controls">
+                <button id="ss-btn-watch-ad" style="display:none;">▶ WATCH AD · +10 CORE</button>
                 <div id="ss-core-above-play">CORE: <span id="ss-core-count">0</span></div>
                 <div id="ss-nav-row">
                     <button class="ss-nav-btn" id="ss-btn-prev">◄</button>
@@ -880,6 +894,8 @@
         let isSoundMuted = false;
         let isAdPlaying = false;
         let maxUnlockedStage = 1;
+        let unlockedStagesSet = new Set([1]);
+        const UNLOCKED_V2_KEY = 'cs_unlocked_v2';
         let totalCores = 0;
         const CORES_KEY = 'cs_total_cores';
         let stageDataArray = null;
@@ -1017,6 +1033,17 @@
             }
         }
 
+        async function saveUnlockedStages() {
+            const arr=[...unlockedStagesSet].sort((a,b)=>a-b);
+            const val=JSON.stringify(arr);
+            if(typeof bridge!=='undefined'&&bridge.storage){
+                bridge.storage.set(UNLOCKED_V2_KEY,val).catch(()=>localStorage.setItem(UNLOCKED_V2_KEY,val));
+            }else{
+                localStorage.setItem(UNLOCKED_V2_KEY,val);
+            }
+            maxUnlockedStage=Math.max(1,...unlockedStagesSet);
+        }
+
         async function saveTotalCores() {
             const val = String(totalCores);
             if(typeof bridge !== 'undefined' && bridge.storage) {
@@ -1037,15 +1064,11 @@
             totalCores = parseInt(val) || 0;
         }
 
-        function saveUnlock(newMaxStage) {
-            if(newMaxStage <= maxUnlockedStage) return;
-            maxUnlockedStage = newMaxStage;
-            const val = String(maxUnlockedStage);
-            if(typeof bridge !== 'undefined' && bridge.storage) {
-                bridge.storage.set(SAVE_KEY, val).catch(()=>localStorage.setItem(SAVE_KEY, val));
-            } else {
-                localStorage.setItem(SAVE_KEY, val);
-            }
+        function saveUnlock(stageNumber) {
+            // stageNumber is 1-based
+            unlockedStagesSet.add(stageNumber);
+            saveUnlockedStages();
+            maxUnlockedStage=Math.max(1,...unlockedStagesSet);
         }
 
         async function loadStageData() {
@@ -1084,14 +1107,33 @@
         }
 
         async function loadProgress() {
-            let val;
-            if (typeof bridge !== 'undefined' && bridge.storage) {
-                try { val = await bridge.storage.get(SAVE_KEY); isBridgeStorageAvailable = true; }
-                catch(e) { val = localStorage.getItem(SAVE_KEY); }
-            } else {
-                val = localStorage.getItem(SAVE_KEY);
+            // Try new v2 format (individual stage set)
+            let v2Val;
+            if(typeof bridge!=='undefined'&&bridge.storage){
+                try{v2Val=await bridge.storage.get(UNLOCKED_V2_KEY);isBridgeStorageAvailable=true;}
+                catch(e){v2Val=localStorage.getItem(UNLOCKED_V2_KEY);}
+            }else{
+                v2Val=localStorage.getItem(UNLOCKED_V2_KEY);
             }
-            maxUnlockedStage = parseInt(val) || 1;
+            if(v2Val){
+                try{const arr=JSON.parse(v2Val);unlockedStagesSet=new Set(arr.filter(n=>n>=1&&n<=300));}
+                catch(e){unlockedStagesSet=new Set([1]);}
+            }else{
+                // Migrate from old sequential maxUnlockedStage
+                let oldVal;
+                if(typeof bridge!=='undefined'&&bridge.storage){
+                    try{oldVal=await bridge.storage.get(SAVE_KEY);}
+                    catch(e){oldVal=localStorage.getItem(SAVE_KEY);}
+                }else{
+                    oldVal=localStorage.getItem(SAVE_KEY);
+                }
+                const oldMax=parseInt(oldVal)||1;
+                unlockedStagesSet=new Set();
+                for(let i=1;i<=oldMax;i++)unlockedStagesSet.add(i);
+                await saveUnlockedStages();
+            }
+            if(unlockedStagesSet.size===0)unlockedStagesSet.add(1);
+            maxUnlockedStage=Math.max(1,...unlockedStagesSet);
             await loadTotalCores();
             return maxUnlockedStage;
         }
@@ -2229,7 +2271,8 @@
 
         const stageSelect = (() => {
             const STAGES_TOTAL = 300;
-            let unlockedStage = 0;
+            let unlockedStage = 0; // kept for compat but logic now uses unlockedStagesSet
+            let _lastUnlockedIdx = 0;
             let targetFocusIndex = 0;
             let appState = 'TITLE';
             let ssActive = false;
@@ -2301,7 +2344,7 @@
                     yesBtn.innerText=`SPEND ${cost} CORE`;
                 }else{
                     const need=cost-totalCores;
-                    info.innerText=`Need ${cost} CORE to unlock.\n${need} more CORE required.\nYou have: ${totalCores} CORE`;
+                    info.innerText=`Need ${cost} CORE to unlock.\n${need} more CORE needed.\nYou have: ${totalCores} CORE`;
                     yesBtn.style.display='none';
                 }
                 dlg.style.display='flex';
@@ -2316,10 +2359,9 @@
                 saveTotalCores();
                 const coreEl=document.getElementById('ss-core-count');
                 if(coreEl)coreEl.innerText=totalCores;
-                // Unlock the stage
+                // Unlock this specific stage (non-sequential)
                 saveUnlock(targetFocusIndex+1);
-                unlockedStage=targetFocusIndex;
-                _updateColors();
+                _lastUnlockedIdx=targetFocusIndex;
                 // Play unlock animation
                 _spawnUnlockParticles();
                 _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
@@ -2410,18 +2452,32 @@
                 const cols=_pathGeo.attributes.color.array;
                 for(let i=0;i<STAGES_TOTAL;i++){
                     const g=_nodes[i],core=g.userData.core,shell=g.userData.shell,glow=g.userData.glow;
-                    const isC=i<unlockedStage,isCur=i===unlockedStage,isL=i>unlockedStage;
-                    g.userData.isCurrent=isCur;
+                    const isUnlocked=unlockedStagesSet.has(i+1);
+                    g.userData.isCurrent=isUnlocked;
                     const hue=(0.5+i*0.015)%1.0,sc=new THREE.Color().setHSL(hue,1.0,0.5);
-                    let cc,shc,gc,go;
-                    if(isC||isCur){cc=sc;shc=sc.clone().multiplyScalar(0.8);gc=sc;go=isCur?0.8:0.4;}
-                    else{cc=new THREE.Color(0x6688aa);shc=new THREE.Color(0x446688);gc=new THREE.Color(0x5588bb);go=0.35;}
-                    const bcc=cc.clone();if(isCur||isC)bcc.multiplyScalar(1.2);
-                    if(doFlash&&i===unlockedStage){let ft=0;const dur=60,s2=new THREE.Color(0xffffff);(function fa(){ft++;const r=Math.pow(ft/dur,1.5);core.material.color.copy(s2).lerp(bcc,r);shell.material.color.copy(s2).lerp(shc,r);glow.material.color.copy(s2).lerp(gc,r);glow.material.opacity=go;if(ft<dur)requestAnimationFrame(fa);})();}
-                    else{core.material.color.copy(bcc);shell.material.color.copy(shc);glow.material.color.copy(gc);glow.material.opacity=go;}
-                    shell.material.opacity=isL?0.45:0.6;
-                    if(i<=unlockedStage){const c=new THREE.Color().setHSL(hue,1.0,0.7);cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;}
-                    else{cols[i*3]=0.2;cols[i*3+1]=0.33;cols[i*3+2]=0.47;}
+                    if(isUnlocked){
+                        const bcc=sc.clone().multiplyScalar(1.2);
+                        const shc=sc.clone().multiplyScalar(0.8);
+                        if(doFlash&&i===_lastUnlockedIdx){
+                            let ft=0;const dur=60,s2=new THREE.Color(0xffffff);
+                            (function fa(){ft++;const r=Math.pow(ft/dur,1.5);
+                                core.material.color.copy(s2).lerp(bcc,r);
+                                shell.material.color.copy(s2).lerp(shc,r);
+                                glow.material.color.copy(sc,r);glow.material.opacity=0.6;
+                                if(ft<dur)requestAnimationFrame(fa);
+                            })();
+                        }else{
+                            core.material.color.copy(bcc);shell.material.color.copy(shc);
+                            glow.material.color.copy(sc);glow.material.opacity=0.6;
+                        }
+                        shell.material.opacity=0.6;
+                        const c=new THREE.Color().setHSL(hue,1.0,0.7);cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;
+                    }else{
+                        const cc=new THREE.Color(0x6688aa),shc=new THREE.Color(0x446688),gc=new THREE.Color(0x5588bb);
+                        core.material.color.copy(cc);shell.material.color.copy(shc);
+                        glow.material.color.copy(gc);glow.material.opacity=0.35;shell.material.opacity=0.45;
+                        cols[i*3]=0.2;cols[i*3+1]=0.33;cols[i*3+2]=0.47;
+                    }
                 }
                 _pathGeo.attributes.color.needsUpdate=true;
             }
@@ -2434,7 +2490,11 @@
 
             const _vLookAt=new THREE.Vector3(), _camPos=new THREE.Vector3(), _curLookAt=new THREE.Vector3();
 
-            function _initCam(){if(_nodes[unlockedStage]){_vLookAt.copy(_nodes[unlockedStage].position);_camPos.set(0,100,1500);_curLookAt.set(0,0,0);_cam.position.copy(_camPos);_cam.lookAt(_curLookAt);}}
+            function _initCam(){
+                const maxIdx=Math.min(Math.max(0,...[...unlockedStagesSet].map(n=>n-1)),STAGES_TOTAL-1);
+                if(_nodes[maxIdx]){_vLookAt.copy(_nodes[maxIdx].position);}
+                _camPos.set(0,100,1500);_curLookAt.set(0,0,0);_cam.position.copy(_camPos);_cam.lookAt(_curLookAt);
+            }
             _initCam();
 
             // DOM refs (assigned in init())
@@ -2446,31 +2506,24 @@
 
             async function _updateUI(){
                 if(!_nameEl)return;
-                const isC=targetFocusIndex<unlockedStage,isCur=targetFocusIndex===unlockedStage;
+                const isUnlocked=unlockedStagesSet.has(targetFocusIndex+1);
                 _nameEl.innerText=`STAGE ${targetFocusIndex+1}`;
                 _btnPlay.className='';
                 let colHex='#557799';
                 const costLabel=document.getElementById('ss-unlock-cost-label');
-                if(isC||isCur){
+                if(costLabel)costLabel.style.display='none';
+                if(isUnlocked){
                     const hue=(0.5+targetFocusIndex*0.015)%1.0;
                     colHex='#'+new THREE.Color().setHSL(hue,1.0,0.6).getHexString();
                     document.getElementById('ss-overlay').style.setProperty('--ss-hl',colHex);
-                    _btnPlay.innerText='START';
-                    if(costLabel){costLabel.style.display='none';}
+                    _btnPlay.innerHTML='<span>START</span>';
                 }else{
-                    _btnPlay.innerText='LOCKED';
-                    const isNextStage=(targetFocusIndex===unlockedStage+1);
-                    if(isNextStage){
-                        _btnPlay.classList.add('ss-btn-locked');
-                        const cost=Math.floor(targetFocusIndex/10)+1;
-                        if(costLabel){costLabel.innerText=`CORE: -${cost}`;costLabel.style.display='block';}
-                    }else{
-                        _btnPlay.classList.add('ss-btn-locked-far');
-                        if(costLabel){costLabel.style.display='none';}
-                    }
+                    const cost=Math.floor(targetFocusIndex/10)+1;
+                    _btnPlay.innerHTML=`<span style="font-size:0.85em;letter-spacing:3px;">LOCKED</span><span style="font-size:0.6em;letter-spacing:2px;opacity:0.9;margin-top:1px;">-${cost} CORE</span>`;
+                    _btnPlay.classList.add('ss-btn-locked');
                 }
                 _nameEl.style.color=colHex;
-                _nameEl.style.textShadow=(isC||isCur)?`0 0 10px ${colHex},0 0 20px ${colHex}`:'none';
+                _nameEl.style.textShadow=isUnlocked?`0 0 10px ${colHex},0 0 20px ${colHex}`:'none';
                 _rankEl.innerHTML='<div class="ss-connecting-msg">CONNECTING...</div>';
                 const fid=++_rankFetchId;
                 const entries=await _fetchRankings(targetFocusIndex);
@@ -2535,8 +2588,8 @@
                 if(appState!=='TITLE'&&_nodes[targetFocusIndex]){
                     const tnp=_nodes[targetFocusIndex].position;
                     _flare.position.lerp(tnp,0.3);const fs=12+Math.sin(t*15)*3;_flare.scale.set(fs,fs,1);
-                    const isCl=targetFocusIndex<unlockedStage,isCur=targetFocusIndex===unlockedStage;
-                    const bc=(isCl||isCur)?new THREE.Color().setHSL((0.5+targetFocusIndex*0.015)%1.0,1.0,0.5):new THREE.Color(0x335577);
+                    const isUnlockedFocus=unlockedStagesSet.has(targetFocusIndex+1);
+                    const bc=isUnlockedFocus?new THREE.Color().setHSL((0.5+targetFocusIndex*0.015)%1.0,1.0,0.5):new THREE.Color(0x335577);
                     _flare.material.color.copy(bc);
                     const pp=_pGeo.attributes.position.array,pc=_pGeo.attributes.color.array;
                     for(let i=0;i<_PC;i++){
@@ -2616,8 +2669,8 @@
                     })();
                     document.getElementById('ss-btn-play').addEventListener('click',()=>{
                         if(!ssActive||appState!=='SELECT')return;
-                        if(targetFocusIndex>unlockedStage){
-                            if(targetFocusIndex===unlockedStage+1) _showUnlockDialog();
+                        if(!unlockedStagesSet.has(targetFocusIndex+1)){
+                            _showUnlockDialog();
                             return;
                         }
                         _playStart();appState='ENTERING_STAGE';
@@ -2673,12 +2726,40 @@
                         const dlg=document.getElementById('ss-unlock-dialog');
                         if(dlg)dlg.style.display='none';
                     });
+                    // Reward ad button: only show when supported
+                    const _watchAdBtn=document.getElementById('ss-btn-watch-ad');
+                    function _checkRewardAdAvailable(){
+                        if(!_watchAdBtn)return;
+                        const pl=window.__PLATFORM||'itch';
+                        const ok=(pl==='playgama'&&typeof bridge!=='undefined'&&bridge.advertisement&&bridge.advertisement.isRewardedSupported)||
+                                 (pl==='crazygames'&&!!__cgSdk);
+                        _watchAdBtn.style.display=ok?'block':'none';
+                    }
+                    _checkRewardAdAvailable();
+                    if(_watchAdBtn){
+                        _watchAdBtn.addEventListener('click',()=>{
+                            _checkRewardAdAvailable();
+                            if(_watchAdBtn.style.display==='none')return;
+                            _watchAdBtn.disabled=true;
+                            showRewardedAd(rewarded=>{
+                                _watchAdBtn.disabled=false;
+                                if(rewarded){
+                                    totalCores+=10;
+                                    saveTotalCores();
+                                    const coreEl=document.getElementById('ss-core-count');
+                                    if(coreEl)coreEl.innerText=totalCores;
+                                    const orig=_watchAdBtn.textContent;
+                                    _watchAdBtn.textContent='✓ +10 CORE ADDED!';
+                                    setTimeout(()=>{_watchAdBtn.textContent=orig;},2500);
+                                }
+                                _checkRewardAdAvailable();
+                            });
+                        });
+                    }
                 },
 
                 syncUnlockedStage(maxVal, cores){
-                    // Only update internal state (do NOT move targetFocusIndex here —
-                    // returnFromGame needs targetFocusIndex to know which stage was just played)
-                    unlockedStage=Math.max(0,maxVal-1);
+                    // unlockedStagesSet is managed in outer scope; just refresh display
                     const el=document.getElementById('ss-core-count');
                     if(el) el.innerText=typeof cores==='number'?cores:totalCores;
                     _updateColors();
@@ -2713,49 +2794,20 @@
                 },
 
                 returnFromGame(isClear, gameMaxUnlocked){
-                    ssActive=true;_ensureAudio();
+                    ssActive=true; _ensureAudio();
                     if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
-                    _flare.visible=true;_pMesh.visible=true;
-
-                    // Update unlock state: determine BEFORE changing internal state
-                    const prevUS=unlockedStage;
-                    if(typeof gameMaxUnlocked==='number'){
-                        const newUS=Math.max(0,gameMaxUnlocked-1);
-                        if(newUS!==unlockedStage){
-                            unlockedStage=newUS;
-                            const el=document.getElementById('ss-core-count');if(el)el.innerText=totalCores;
-                        }
-                    }
+                    _flare.visible=true; _pMesh.visible=true;
+                    const el=document.getElementById('ss-core-count');if(el)el.innerText=totalCores;
                     // Fade in: start black, then reveal starfield
                     _fadeOvl.style.transition='none'; _fadeOvl.style.opacity='1';
-                    requestAnimationFrame(()=>{
-                        requestAnimationFrame(()=>{
-                            _fadeOvl.style.transition='opacity 1s ease-in-out';
-                            _fadeOvl.style.opacity='0';
-                        });
-                    });
-
-                    if(isClear){
-                        appState='EXITING_STAGE_CLEAR';
-                        // newUnlock: did this clear advance the frontier AND was player at frontier?
-                        const didAdvance=(unlockedStage>prevUS);
-                        const wasOnFrontier=(targetFocusIndex===prevUS);
-                        const showUnlockAnim=didAdvance&&wasOnFrontier;
-                        _updateColors();
-                        setTimeout(()=>{
-                            if(showUnlockAnim){
-                                appState='UNLOCKING_NEXT';_playUnlock();_updateColors(true);
-                                setTimeout(()=>{
-                                    targetFocusIndex=unlockedStage;
-                                    _vLookAt.copy(_nodes[targetFocusIndex].position);
-                                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
-                                },1000);
-                            }else{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();}
-                        },1500);
-                    }else{
-                        appState='EXITING_STAGE_FAIL';
-                        setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
-                    }
+                    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+                        _fadeOvl.style.transition='opacity 1s ease-in-out';
+                        _fadeOvl.style.opacity='0';
+                    }); });
+                    _updateColors();
+                    const _toSelect=()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();};
+                    appState=isClear?'EXITING_STAGE_CLEAR':'EXITING_STAGE_FAIL';
+                    setTimeout(_toSelect,1500);
                     if(!ssAnimating){ssAnimating=true;_animate();}
                 }
             };
