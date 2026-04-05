@@ -368,8 +368,9 @@
             gap: 20px; z-index: 30; transition: opacity 1s ease;
         }
         .ss-title-logo {
-            font-size: 3rem; font-weight: 900; letter-spacing: 5px;
-            text-align: center; text-transform: uppercase;
+            font-size: clamp(1.5rem, 7vw, 3rem); font-weight: 900;
+            letter-spacing: clamp(2px, 1.5vw, 5px);
+            text-align: center; text-transform: uppercase; white-space: nowrap;
         }
         .ss-title-char {
             display: inline-block; animation: ss-titleHue 4s infinite linear;
@@ -391,6 +392,33 @@
         }
         #ss-btn-title-start:hover { background: rgba(0,255,255,0.1); transform: scale(1.02); }
         #ss-btn-title-start:active { transform: scale(0.98); }
+        .ss-title-tagline {
+            color: rgba(255,255,255,0.4); font-size: 0.68rem; letter-spacing: 4px;
+            text-transform: uppercase; margin-top: -12px;
+        }
+        .ss-bgm-toggle {
+            background: transparent; border: 1px solid rgba(255,255,255,0.28);
+            color: rgba(255,255,255,0.55); padding: 6px 16px; border-radius: 20px;
+            font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;
+            cursor: pointer; transition: all 0.2s; outline: none;
+        }
+        .ss-bgm-toggle:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+        .ss-title-footer {
+            position: absolute; bottom: 14px; left: 0; width: 100%;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none;
+        }
+        .ss-title-version {
+            color: rgba(255,255,255,0.18); font-size: 9px; letter-spacing: 2px;
+        }
+        .ss-title-settings-btn {
+            position: absolute; right: 16px; bottom: 0;
+            color: rgba(255,255,255,0.18); font-size: 9px; letter-spacing: 1px;
+            cursor: pointer; background: none; border: none;
+            font-family: 'Orbitron',sans-serif; padding: 0; pointer-events: auto;
+            transition: color 0.2s;
+        }
+        .ss-title-settings-btn:hover { color: rgba(255,255,255,0.55); }
         #ss-ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             opacity: 0; pointer-events: none; transition: opacity 1.5s ease; z-index: 10;
@@ -456,8 +484,15 @@
         @keyframes ss-blink { 0%,100%{opacity:1;}50%{opacity:0.3;} }
         #ss-bottom-controls {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            display: flex; align-items: center; justify-content: space-between;
-            width: 350px; gap: 10px; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center;
+            width: 350px; gap: 8px; pointer-events: none;
+        }
+        #ss-nav-row {
+            display: flex; align-items: center; width: 100%; gap: 10px;
+        }
+        #ss-core-above-play {
+            color: rgba(0,255,255,0.6); font-size: 0.72rem; letter-spacing: 2px;
+            font-family: 'Orbitron',sans-serif; pointer-events: none;
         }
         .ss-nav-btn {
             width: 55px; height: 55px; flex-shrink: 0; font-size: 1.2rem; border-radius: 50%;
@@ -502,6 +537,7 @@
             #ss-center-top-ui { width: 300px; top: 28%; }
             #ss-stage-name-display { font-size: 2rem; }
             #ss-bottom-controls { width: 300px; }
+            #ss-nav-row { width: 300px; }
         }
     </style>
     <script type="importmap">
@@ -613,7 +649,6 @@
                 <span id="turn-val" class="hud-val">20</span>
             </div>
             <div class="hud-group right" style="flex-direction:row; gap:8px; align-items:center;">
-                <button id="btn-sound-toggle" class="btn-mini" title="Toggle Sound">🔊</button>
                 <button id="btn-back-title" class="btn-mini">EXIT</button>
             </div>
         </div>
@@ -666,6 +701,14 @@
         </div>
     </div>
 
+    <!-- Pause overlay: EXIT button during game -->
+    <div id="pause-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; justify-content:center; align-items:center; z-index:60; pointer-events:auto;">
+        <div class="banner-clean overlay-content" style="gap:20px;">
+            <button id="btn-pause-restart" class="btn-base">RESTART</button>
+            <button id="btn-pause-retire" class="btn-base btn-alert">RETIRE</button>
+        </div>
+    </div>
+
     <!-- Full-screen fade overlay for game↔stage-select transitions -->
     <div id="game-fade-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:195;opacity:0;pointer-events:none;transition:opacity 0.8s ease-in-out;"></div>
 
@@ -675,21 +718,30 @@
         <div id="ss-canvas-container"></div>
         <div id="ss-title-layer">
             <div class="ss-title-logo">CYBER SLIDE</div>
+            <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
             <button id="ss-btn-title-start">START</button>
+            <button id="ss-btn-bgm-title" class="ss-bgm-toggle">BGM: ON</button>
+            <div class="ss-title-footer">
+                <span class="ss-title-version">Production v25</span>
+                <button class="ss-title-settings-btn" id="ss-btn-title-settings">SETTINGS</button>
+            </div>
         </div>
         <div id="ss-ui-layer">
             <div id="ss-header">
                 <button id="ss-btn-back">◄ BACK</button>
-                <div class="ss-core-info">CORE: <span id="ss-core-count">0</span> / 300</div>
+                <button id="ss-btn-bgm-header" class="ss-bgm-toggle">BGM: ON</button>
             </div>
             <div id="ss-center-top-ui">
                 <div id="ss-stage-name-display">STAGE 1</div>
                 <div id="ss-ranking-container"></div>
             </div>
             <div id="ss-bottom-controls">
-                <button class="ss-nav-btn" id="ss-btn-prev">◄</button>
-                <button id="ss-btn-play">START</button>
-                <button class="ss-nav-btn" id="ss-btn-next">►</button>
+                <div id="ss-core-above-play">CORE: <span id="ss-core-count">0</span> / 300</div>
+                <div id="ss-nav-row">
+                    <button class="ss-nav-btn" id="ss-btn-prev">◄</button>
+                    <button id="ss-btn-play">START</button>
+                    <button class="ss-nav-btn" id="ss-btn-next">►</button>
+                </div>
             </div>
         </div>
         <div id="ss-crosshair"></div>
@@ -986,8 +1038,7 @@
             if (isSoundMuted && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
-            const btn = document.getElementById('btn-sound-toggle');
-            if (btn) btn.innerText = isSoundMuted ? '🔇' : '🔊';
+            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'BGM: OFF':'BGM: ON');
         }
 
         function clearAllTimeouts() { timeouts.forEach(t => clearTimeout(t)); timeouts = []; if(animationFrameId) cancelAnimationFrame(animationFrameId); }
@@ -1788,7 +1839,9 @@
             const startScore = currentScore; currentScore += turnBonus;
             const startTurns = remainingTurns;
             
+            const prevMax = maxUnlockedStage;
             if(isCampaignMode) { saveProgress(currentStage); trySocialPrompt(currentStage); }
+            const didUnlockNew = maxUnlockedStage > prevMax;
             if (__cgSdk) __cgSdk.game.happytime();
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
@@ -1808,6 +1861,19 @@
             };
             await animateScoreBonus();
 
+            // Check personal best before showing message
+            const _bk='cs_stage_best_'+currentStage;
+            const _pb=parseInt(localStorage.getItem(_bk))||0;
+            const isNewHighScore = currentScore > _pb;
+            if(isNewHighScore) localStorage.setItem(_bk, currentScore);
+            // Post to Playgama leaderboard if supported
+            if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
+                bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
+            }
+            // Set dynamic stage clear message
+            txt.innerText = 'STAGE CLEAR';
+            sub.innerText = isNewHighScore ? 'NEW HIGH SCORE!' : (didUnlockNew ? 'Next Sector Unlocked' : 'Stage Complete');
+
             setCinematicGlass(true);
             await new Promise(r => safeTimeout(r, 1000));
 
@@ -1823,15 +1889,6 @@
             await new Promise(r=>setTimeout(r,1000));
             msg.style.display='none';
             txt.style.opacity=0; sub.style.opacity=0; txt.style.transform='translateY(20px)';
-
-            // Save personal best score for this stage
-            const _bk='cs_stage_best_'+currentStage;
-            const _pb=parseInt(localStorage.getItem(_bk))||0;
-            if(currentScore>_pb) localStorage.setItem(_bk,currentScore);
-            // Post to Playgama leaderboard if supported
-            if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
-                bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
-            }
             // Fade to black, then show stage select
             const _gfo=document.getElementById('game-fade-overlay');
             if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
@@ -1893,6 +1950,14 @@
             }
         }
         function resetTilt() { targetTilt={x:0,z:0}; }
+
+        // --- PAUSE MENU ---
+        function showPauseMenu() {
+            if(!gameActive || isClearingStage || isGameOver) return;
+            isProcessing = true;
+            setCinematicGlass(true);
+            document.getElementById('pause-overlay').style.display = 'flex';
+        }
 
         // --- SETUP ---
         async function showStartScreen() {
@@ -1987,11 +2052,34 @@
             document.getElementById('btn-start-custom').addEventListener('click', startCustomGame);
             document.getElementById('btn-reset').addEventListener('click', triggerBoardCollapse);
             document.getElementById('btn-title').addEventListener('click', showStartScreen);
-            document.getElementById('btn-back-title').addEventListener('click', showStartScreen);
+            document.getElementById('btn-back-title').addEventListener('click', showPauseMenu);
 
             document.getElementById('btn-help-toggle').addEventListener('click', () => document.getElementById('help-screen').style.display='flex');
             document.getElementById('btn-close-help').addEventListener('click', () => document.getElementById('help-screen').style.display='none');
-            document.getElementById('btn-sound-toggle').addEventListener('click', toggleSound);
+
+            document.getElementById('btn-pause-restart').addEventListener('click', () => {
+                document.getElementById('pause-overlay').style.display = 'none';
+                setCinematicGlass(false);
+                isProcessing = false;
+                if(isCampaignMode) startStage(currentStage); else startCustomGame();
+            });
+            document.getElementById('btn-pause-retire').addEventListener('click', () => {
+                document.getElementById('pause-overlay').style.display = 'none';
+                setCinematicGlass(false);
+                gameActive = false; stopBGM();
+                if(isCampaignMode) {
+                    const _gfo = document.getElementById('game-fade-overlay');
+                    if(_gfo){ _gfo.style.transition='opacity 0.8s ease-in-out'; _gfo.style.opacity='1'; }
+                    setTimeout(() => {
+                        document.getElementById('game-ui').style.display = 'none';
+                        document.getElementById('ss-overlay').style.display = 'block';
+                        if(_gfo) setTimeout(()=>{ _gfo.style.transition='opacity 0.8s ease-in-out'; _gfo.style.opacity='0'; }, 50);
+                        stageSelect.returnFromGame(false, maxUnlockedStage);
+                    }, 900);
+                } else {
+                    showStartScreen();
+                }
+            });
         }
 
         function animate() {
@@ -2336,8 +2424,21 @@
                         _canvasCont.style.filter='blur(8px)';
                         appState='TITLE';
                     });
-                    document.getElementById('ss-btn-prev').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(-1);});
-                    document.getElementById('ss-btn-next').addEventListener('click',()=>{if(ssActive&&appState==='SELECT')_navigate(1);});
+                    // Long-press navigation for prev/next
+                    (function(){
+                        let _navTimer=null;
+                        function _startNav(dir){if(!ssActive||appState!=='SELECT')return;_navigate(dir);clearInterval(_navTimer);_navTimer=setInterval(()=>{if(ssActive&&appState==='SELECT')_navigate(dir);else{clearInterval(_navTimer);_navTimer=null;}},180);}
+                        function _stopNav(){clearInterval(_navTimer);_navTimer=null;}
+                        const prev=document.getElementById('ss-btn-prev');
+                        const next=document.getElementById('ss-btn-next');
+                        prev.addEventListener('pointerdown',e=>{e.preventDefault();_startNav(-1);});
+                        next.addEventListener('pointerdown',e=>{e.preventDefault();_startNav(1);});
+                        ['pointerup','pointerleave','pointercancel'].forEach(ev=>{
+                            prev.addEventListener(ev,_stopNav);
+                            next.addEventListener(ev,_stopNav);
+                        });
+                        window.addEventListener('pointerup',_stopNav);
+                    })();
                     document.getElementById('ss-btn-play').addEventListener('click',()=>{
                         if(!ssActive||appState!=='SELECT')return;
                         if(targetFocusIndex>unlockedStage)return;
@@ -2376,6 +2477,17 @@
                     window.addEventListener('resize',()=>{
                         _cam.aspect=window.innerWidth/window.innerHeight;_cam.updateProjectionMatrix();
                         _rdr.setSize(window.innerWidth,window.innerHeight);_comp.setSize(window.innerWidth,window.innerHeight);
+                    });
+                    // BGM toggle buttons (both title and select header)
+                    document.querySelectorAll('.ss-bgm-toggle').forEach(el=>{
+                        el.addEventListener('click',()=>toggleSound());
+                    });
+                    // Settings button in title layer
+                    const _settingsBtn=document.getElementById('ss-btn-title-settings');
+                    if(_settingsBtn) _settingsBtn.addEventListener('click',()=>{
+                        ssActive=false; ssAnimating=false;
+                        document.getElementById('ss-overlay').style.display='none';
+                        showStartScreen();
                     });
                 },
 
