@@ -2519,8 +2519,18 @@
                     _btnPlay.innerHTML='<span>START</span>';
                 }else{
                     const cost=Math.floor(targetFocusIndex/10)+1;
-                    _btnPlay.innerHTML=`<span style="font-size:0.85em;letter-spacing:3px;">LOCKED</span><span style="font-size:0.6em;letter-spacing:2px;opacity:0.9;margin-top:1px;">-${cost} CORE</span>`;
-                    _btnPlay.classList.add('ss-btn-locked');
+                    if(totalCores>=cost){
+                        // Affordable: show UNLOCK with active stage color
+                        const hue=(0.5+targetFocusIndex*0.015)%1.0;
+                        colHex='#'+new THREE.Color().setHSL(hue,1.0,0.6).getHexString();
+                        document.getElementById('ss-overlay').style.setProperty('--ss-hl',colHex);
+                        _btnPlay.innerHTML=`<span style="font-size:0.85em;letter-spacing:3px;">UNLOCK</span><span style="font-size:0.6em;letter-spacing:2px;opacity:0.9;margin-top:1px;">-${cost} CORE</span>`;
+                        // No extra class = uses default active --ss-hl styling
+                    }else{
+                        // Cannot afford: show LOCKED with dim style
+                        _btnPlay.innerHTML=`<span style="font-size:0.85em;letter-spacing:3px;">LOCKED</span><span style="font-size:0.6em;letter-spacing:2px;opacity:0.9;margin-top:1px;">-${cost} CORE</span>`;
+                        _btnPlay.classList.add('ss-btn-locked');
+                    }
                 }
                 _nameEl.style.color=colHex;
                 _nameEl.style.textShadow=isUnlocked?`0 0 10px ${colHex},0 0 20px ${colHex}`:'none';
@@ -2681,7 +2691,7 @@
                     });
                     window.addEventListener('pointerdown',(e)=>{
                         if(!ssActive||appState!=='SELECT')return;
-                        if(e.target.tagName==='BUTTON')return;
+                        if(e.target.closest('button'))return; // block span-inside-button clicks too
                         _ptrDown=true;_dragDist=0;_lastPtr.x=e.clientX;_lastPtr.y=e.clientY;
                     });
                     window.addEventListener('pointermove',(e)=>{
@@ -2759,7 +2769,13 @@
                 },
 
                 syncUnlockedStage(maxVal, cores){
-                    // unlockedStagesSet is managed in outer scope; just refresh display
+                    // Set focus to next stage after highest unlocked
+                    if(unlockedStagesSet.size>0){
+                        const maxUnlIdx=Math.min(Math.max(0,...[...unlockedStagesSet].map(n=>n-1)),STAGES_TOTAL-1);
+                        const nextIdx=Math.min(maxUnlIdx+1,STAGES_TOTAL-1);
+                        targetFocusIndex=nextIdx;
+                        if(_nodes[nextIdx])_vLookAt.copy(_nodes[nextIdx].position);
+                    }
                     const el=document.getElementById('ss-core-count');
                     if(el) el.innerText=typeof cores==='number'?cores:totalCores;
                     _updateColors();
@@ -2805,9 +2821,16 @@
                         _fadeOvl.style.opacity='0';
                     }); });
                     _updateColors();
-                    const _toSelect=()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();};
-                    appState=isClear?'EXITING_STAGE_CLEAR':'EXITING_STAGE_FAIL';
-                    setTimeout(_toSelect,1500);
+                    if(isClear){
+                        appState='EXITING_STAGE_CLEAR';
+                        // Focus next stage after cleared (currentStage is 1-based, so index = currentStage)
+                        const nextIdx=Math.min(currentStage,STAGES_TOTAL-1);
+                        targetFocusIndex=nextIdx;
+                        if(_nodes[nextIdx])_vLookAt.copy(_nodes[nextIdx].position);
+                    }else{
+                        appState='EXITING_STAGE_FAIL';
+                    }
+                    setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},1500);
                     if(!ssAnimating){ssAnimating=true;_animate();}
                 }
             };
