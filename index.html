@@ -44,12 +44,21 @@
             --hud-max-width: 900px;
         }
 
+        /* --- GLOBAL TEXT SELECTION DISABLE --- */
+        *, *::before, *::after {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
         /* --- CORE LAYOUT --- */
-        body { 
-            margin: 0; overflow: hidden; background-color: #050510; 
+        body {
+            margin: 0; overflow: hidden; background-color: #050510;
             font-family: 'Orbitron', sans-serif;
-            user-select: none; touch-action: none; color: var(--col-main); 
-            cursor: grab; 
+            user-select: none; touch-action: none; color: var(--col-main);
+            cursor: grab;
         }
         body:active { cursor: grabbing; }
 
@@ -704,7 +713,7 @@
     <!-- Pause overlay: EXIT button during game -->
     <div id="pause-overlay" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; justify-content:center; align-items:center; z-index:60; pointer-events:auto;">
         <div class="banner-clean overlay-content" style="gap:20px;">
-            <button id="btn-pause-restart" class="btn-base">RESTART</button>
+            <button id="btn-pause-resume" class="btn-base">RESUME</button>
             <button id="btn-pause-retire" class="btn-base btn-alert">RETIRE</button>
         </div>
     </div>
@@ -2057,11 +2066,10 @@
             document.getElementById('btn-help-toggle').addEventListener('click', () => document.getElementById('help-screen').style.display='flex');
             document.getElementById('btn-close-help').addEventListener('click', () => document.getElementById('help-screen').style.display='none');
 
-            document.getElementById('btn-pause-restart').addEventListener('click', () => {
+            document.getElementById('btn-pause-resume').addEventListener('click', () => {
                 document.getElementById('pause-overlay').style.display = 'none';
                 setCinematicGlass(false);
                 isProcessing = false;
-                if(isCampaignMode) startStage(currentStage); else startCustomGame();
             });
             document.getElementById('btn-pause-retire').addEventListener('click', () => {
                 document.getElementById('pause-overlay').style.display = 'none';
