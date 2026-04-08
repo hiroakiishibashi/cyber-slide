@@ -1,5 +1,7 @@
-// generate_stages.js v3
-// Wave difficulty (5-stage waves) + 18 shape varieties + no isolated floor cells
+// generate_stages.js v4
+// Tile-count-based progression: stage 1-10 max 10 tiles, +5 per 10 stages
+// No peninsula cells (each cell needs 2+ neighbors)
+// Halved turn limits, significantly more target cores
 // Run: node generate_stages.js
 
 const fs = require('fs');
@@ -67,34 +69,66 @@ function isConnected(map) {
     return cnt === total;
 }
 
-// Fix isolated cells: any cell with no neighbor gets a neighbor added
-function fixIsolated(map) {
+function countTiles(map) {
+    let c = 0;
+    for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) if (map[x][z]) c++;
+    return c;
+}
+
+function neighborCount(map, x, z) {
+    return DIRS.filter(([dx,dz]) => {
+        const nx=x+dx, nz=z+dz;
+        return nx>=0&&nx<8&&nz>=0&&nz<8&&map[nx][nz];
+    }).length;
+}
+
+// Trim shape to at most maxTiles by removing boundary cells (fewest neighbors first)
+// while maintaining connectivity
+function trimToMaxTiles(map, maxTiles) {
+    let count = countTiles(map);
+    if (count <= maxTiles) return;
+
+    while (count > maxTiles) {
+        // Build sorted candidate list: fewest neighbors first
+        let candidates = [];
+        for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) {
+            if (!map[x][z]) continue;
+            candidates.push({ x, z, nb: neighborCount(map, x, z) });
+        }
+        candidates.sort((a, b) => a.nb - b.nb);
+
+        let removed = false;
+        for (const c of candidates) {
+            map[c.x][c.z] = false;
+            if (isConnected(map)) { count--; removed = true; break; }
+            map[c.x][c.z] = true; // restore if disconnects
+        }
+        if (!removed) break; // cannot trim further safely
+    }
+}
+
+// Remove peninsula cells (< 2 neighbors) iteratively, stop at minCells
+function removePeninsulas(map, minCells) {
     let changed = true;
     while (changed) {
         changed = false;
+        let count = countTiles(map);
         for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) {
             if (!map[x][z]) continue;
-            const hasNb = DIRS.some(([dx,dz]) => {
-                const nx=x+dx, nz=z+dz;
-                return nx>=0&&nx<8&&nz>=0&&nz<8&&map[nx][nz];
-            });
-            if (!hasNb) {
-                for (const [dx,dz] of DIRS) {
-                    const nx=x+dx, nz=z+dz;
-                    if (nx>=0&&nx<8&&nz>=0&&nz<8&&!map[nx][nz]) {
-                        map[nx][nz] = true; changed = true; break;
-                    }
-                }
+            if (count <= minCells) break;
+            if (neighborCount(map, x, z) < 2) {
+                map[x][z] = false; count--; changed = true;
             }
         }
     }
 }
 
 // --- Board shape generation (18 types) ---
-// sz: board size 4–8. Shape cycles through 18 patterns.
+// sz: base canvas size 4–8 (same progression as before)
+// maxTiles: tile budget = min(64, 10 + floor((stage-1)/10)*5)
 function getBoardShape(stage) {
-    // Size grows from 4 to 8 over stages 1–50+
     const sz = Math.min(8, Math.max(4, 3 + Math.floor((stage - 1) / 10)));
+    const maxTiles = Math.min(64, 10 + Math.floor((stage - 1) / 10) * 5);
     const st = (stage - 1) % 18;
     const map = emptyMap();
 
@@ -103,11 +137,11 @@ function getBoardShape(stage) {
             fillRect(map, 0, 0, sz, sz);
             break;
 
-        case 1: // Wide rectangle (full width, reduced height)
+        case 1: // Wide rectangle
             fillRect(map, 0, 0, sz, Math.max(2, sz - 1));
             break;
 
-        case 2: // Tall rectangle (reduced width, full height)
+        case 2: // Tall rectangle
             fillRect(map, 0, 0, Math.max(2, sz - 1), sz);
             break;
 
@@ -120,29 +154,29 @@ function getBoardShape(stage) {
 
         case 4: { // L — bottom-left corner
             const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, 0, sz, a);   // horizontal base
-            fillRect(map, 0, 0, a, sz);   // vertical left arm
+            fillRect(map, 0, 0, sz, a);
+            fillRect(map, 0, 0, a, sz);
             break;
         }
 
         case 5: { // L — top-right corner
             const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, sz-a, sz, a);   // horizontal top
-            fillRect(map, sz-a, 0, a, sz);   // vertical right arm
+            fillRect(map, 0, sz-a, sz, a);
+            fillRect(map, sz-a, 0, a, sz);
             break;
         }
 
         case 6: { // L — bottom-right corner
             const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, 0, sz, a);      // horizontal base
-            fillRect(map, sz-a, 0, a, sz);   // vertical right arm
+            fillRect(map, 0, 0, sz, a);
+            fillRect(map, sz-a, 0, a, sz);
             break;
         }
 
         case 7: { // L — top-left corner
             const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, sz-a, sz, a);   // horizontal top
-            fillRect(map, 0, 0, a, sz);      // vertical left arm
+            fillRect(map, 0, sz-a, sz, a);
+            fillRect(map, 0, 0, a, sz);
             break;
         }
 
@@ -150,8 +184,8 @@ function getBoardShape(stage) {
             const pw = Math.max(2, Math.ceil(sz * 0.4));
             const bh = Math.max(2, Math.ceil(sz * 0.4));
             const mx = Math.floor((sz - pw) / 2);
-            fillRect(map, 0, sz-bh, sz, bh);   // top bar
-            fillRect(map, mx, 0, pw, sz);       // center pillar
+            fillRect(map, 0, sz-bh, sz, bh);
+            fillRect(map, mx, 0, pw, sz);
             break;
         }
 
@@ -159,26 +193,26 @@ function getBoardShape(stage) {
             const pw = Math.max(2, Math.ceil(sz * 0.4));
             const bh = Math.max(2, Math.ceil(sz * 0.4));
             const mx = Math.floor((sz - pw) / 2);
-            fillRect(map, 0, 0, sz, bh);    // bottom bar
-            fillRect(map, mx, 0, pw, sz);   // center pillar
+            fillRect(map, 0, 0, sz, bh);
+            fillRect(map, mx, 0, pw, sz);
             break;
         }
 
         case 10: { // U-shape (open top)
             const aw = Math.max(2, Math.ceil(sz * 0.35));
             const bh = Math.max(2, Math.ceil(sz * 0.35));
-            fillRect(map, 0, 0, sz, bh);          // bottom base
-            fillRect(map, 0, 0, aw, sz);           // left arm
-            fillRect(map, sz-aw, 0, aw, sz);       // right arm
+            fillRect(map, 0, 0, sz, bh);
+            fillRect(map, 0, 0, aw, sz);
+            fillRect(map, sz-aw, 0, aw, sz);
             break;
         }
 
         case 11: { // C-shape (open right)
             const aw = Math.max(2, Math.ceil(sz * 0.35));
             const sh = Math.max(2, Math.ceil(sz * 0.35));
-            fillRect(map, 0, 0, aw, sz);           // left spine
-            fillRect(map, 0, 0, sz, sh);           // bottom arm
-            fillRect(map, 0, sz-sh, sz, sh);       // top arm
+            fillRect(map, 0, 0, aw, sz);
+            fillRect(map, 0, 0, sz, sh);
+            fillRect(map, 0, sz-sh, sz, sh);
             break;
         }
 
@@ -201,7 +235,7 @@ function getBoardShape(stage) {
             break;
         }
 
-        case 14: { // Staircase (3 steps, top-left to bottom-right)
+        case 14: { // Staircase
             const step = Math.max(1, Math.floor(sz / 3));
             for (let s = 0; s < 3; s++) {
                 const x0 = s * step;
@@ -212,17 +246,17 @@ function getBoardShape(stage) {
             break;
         }
 
-        case 15: { // H-shape (two vertical columns + center bar)
+        case 15: { // H-shape
             const aw = Math.max(2, Math.ceil(sz * 0.35));
             const bh = Math.max(2, Math.ceil(sz * 0.3));
             const mz = Math.floor((sz - bh) / 2);
-            fillRect(map, 0, 0, aw, sz);         // left column
-            fillRect(map, sz-aw, 0, aw, sz);     // right column
-            fillRect(map, 0, mz, sz, bh);        // center bar
+            fillRect(map, 0, 0, aw, sz);
+            fillRect(map, sz-aw, 0, aw, sz);
+            fillRect(map, 0, mz, sz, bh);
             break;
         }
 
-        case 16: { // Arrow pointing right (triangle)
+        case 16: { // Arrow pointing right
             const mid = Math.floor((sz-1) / 2);
             for (let z = 0; z < sz; z++) {
                 const dist = Math.abs(z - mid);
@@ -231,22 +265,36 @@ function getBoardShape(stage) {
             break;
         }
 
-        case 17: { // S-shape / zigzag (two offset rectangles)
+        case 17: { // S-shape / zigzag
             const segH = Math.ceil(sz / 2);
             const segW = Math.max(2, Math.ceil(sz * 0.65));
-            fillRect(map, 0, 0, segW, segH);               // bottom-left
-            fillRect(map, sz-segW, sz-segH, segW, segH);   // top-right
+            fillRect(map, 0, 0, segW, segH);
+            fillRect(map, sz-segW, sz-segH, segW, segH);
+            // Bridge the two halves so they're connected
+            const bx = Math.floor((sz - segW) / 2);
+            fillRect(map, bx, segH-1, segW, 2);
             break;
         }
     }
 
-    // Guarantee: no isolated cells, full connectivity
-    fixIsolated(map);
-    if (!isConnected(map)) {
-        // Fallback to solid square
+    // Trim to tile budget (removes boundary/peninsula cells first)
+    trimToMaxTiles(map, maxTiles);
+
+    // Remove peninsula cells (cells with < 2 neighbors) — no narrow single-cell connections
+    // Keep at least 4 cells as safety floor
+    removePeninsulas(map, Math.max(4, Math.floor(maxTiles * 0.6)));
+
+    // Connectivity check with fallback to compact square
+    if (!isConnected(map) || countTiles(map) < 4) {
         const fb = emptyMap();
-        fillRect(fb, 0, 0, sz, sz);
-        return { w: sz, h: sz, map: fb };
+        const side = Math.min(8, Math.ceil(Math.sqrt(maxTiles)) + 1);
+        fillRect(fb, 0, 0, side, side);
+        trimToMaxTiles(fb, maxTiles);
+        let maxX = 0, maxZ = 0;
+        for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) if (fb[x][z]) {
+            if (x > maxX) maxX = x; if (z > maxZ) maxZ = z;
+        }
+        return { w: maxX+1, h: maxZ+1, map: fb };
     }
 
     let maxX = 0, maxZ = 0;
@@ -257,45 +305,31 @@ function getBoardShape(stage) {
 }
 
 // --- Wave-based difficulty ---
-// wavePos 1–5 within each group of 5 stages.
-// globalT 0–1 over all 300 stages.
-// Result d is 0–1: higher = harder.
 function getWaveDifficulty(stage) {
     const wavePos  = ((stage - 1) % 5) + 1;   // 1..5
     const globalT  = (stage - 1) / 299;        // 0..1
     const waveFactor = wavePos / 5;            // 0.2..1.0
-    // 55% global trend + 45% wave pulse
     return globalT * 0.55 + waveFactor * 0.45;
 }
 
 function calculateStageDifficulty(stage) {
     const shape = getBoardShape(stage);
     const d = getWaveDifficulty(stage);
-    const globalT = (stage - 1) / 299;  // 0..1 purely by stage progression
+    const globalT = (stage - 1) / 299;
 
     // --- Spawn rate ---
     const spawnRate = Math.round(Math.max(3, 10 - d * 7));
 
-    // --- Target cores ---
-    // Quadratic curve so early waves stay gentle; blends d² with globalT so the
-    // very first 5-stage wave doesn't spike too hard. Max 30 for stage 300 wave 5.
-    const targetCores = Math.min(30, Math.max(1,
-        Math.round(d * d * 30 * (0.5 + 0.5 * globalT))
+    // --- Target cores (significantly more than before) ---
+    // Stage 1 ≈ 8, Stage 150 ≈ 40, Stage 300 ≈ 80
+    const targetCores = Math.min(80, Math.max(5,
+        Math.round(5 + (d * 0.4 + globalT * 0.6) * 75)
     ));
 
-    // --- Turn limit ---
-    // Give the player enough tilts to realistically collect all cores.
-    // Base 25 + 2.5× targetCores, minimum 30.
-    const turnLimit = Math.round(Math.max(30, targetCores * 2.5 + 25));
+    // --- Turn limit (halved from previous formula) ---
+    const turnLimit = Math.round(Math.max(15, (targetCores * 2.5 + 25) / 2));
 
     // --- Obstacle rate ---
-    // obstacleRate = N means 1-in-N spawned blocks is an obstacle.
-    // Higher N = rarer obstacles = EASIER. 0 = none (easiest).
-    // 1 is INVALID (would make every block an obstacle → unbeatable).
-    // So: 0 for tutorial (stages 1–10), then ≥2 for stage 11+.
-    // As difficulty rises, N decreases (obstacles more frequent).
-    // Must NOT equal spawnRate (core interval): if equal, obstacles would
-    // always coincide with cores, causing one to permanently suppress the other.
     let obstacleRate = 0;
     if (stage > 10) {
         let or = Math.max(2, Math.round(12 - d * 10));
@@ -320,7 +354,6 @@ function calculateStageDifficulty(stage) {
 function generateVisuals(stage) {
     const colorPhase = Math.floor((stage - 1) / 5);
     const stylePhase = Math.floor((stage - 1) / 10);
-    // Golden angle 137° gives maximum hue spread with no early repetition
     const baseHue = (colorPhase * 137) % 360;
     return {
         bg:           hslToHex(baseHue/360, 0.5, 0.08),
@@ -367,26 +400,22 @@ fs.writeFileSync('stages.json', JSON.stringify({ stages }, null, 2));
 console.log(`Generated stages.json with ${stages.length} stages.`);
 
 // --- Verification report ---
-console.log('\n=== Difficulty Wave Preview (stages 1–20) ===');
-for (let i = 1; i <= 20; i++) {
-    const d = getWaveDifficulty(i);
-    const pos = ((i-1)%5)+1;
-    const bar = '█'.repeat(Math.round(d * 20)).padEnd(20);
-    console.log(`  Stage ${String(i).padStart(3)} [wave pos ${pos}]: ${bar} d=${d.toFixed(3)}`);
-}
-console.log('\n=== Shape & Size at key stages ===');
-[1,5,6,10,50,100,150,200,250,300].forEach(i => {
+console.log('\n=== Tile Count & Difficulty (stages 1–30) ===');
+for (let i = 1; i <= 30; i++) {
     const shape = getBoardShape(i);
-    const st = (i-1) % 18;
-    const names = ['Square','Wide','Tall','Plus','L-BL','L-TR','L-BR','L-TL','T-top','T-bot','U','C','Diamond','Donut','Stairs','H','Arrow','S-shape'];
+    const diff = calculateStageDifficulty(i);
+    const maxT = Math.min(64, 10 + Math.floor((i-1)/10) * 5);
     let cells = 0;
     for (let x=0;x<8;x++) for (let z=0;z<8;z++) if(shape.map[x][z]) cells++;
-    console.log(`  Stage ${String(i).padStart(3)}: sz=${shape.w}x${shape.h} shape=${names[st].padEnd(8)} cells=${String(cells).padStart(2)} d=${getWaveDifficulty(i).toFixed(3)}`);
-});
-console.log('\n=== Difficulty at stage milestones ===');
-[1,5,6,10,50,100,150,200,250,295,296,300].forEach(i => {
+    console.log(`  Stage ${String(i).padStart(3)}: budget=${String(maxT).padStart(2)} cells=${String(cells).padStart(2)} cores=${String(diff.targetCores).padStart(2)} turns=${String(diff.turnLimit).padStart(3)}`);
+}
+console.log('\n=== Key milestones ===');
+[1,50,100,150,200,250,300].forEach(i => {
     const d = getWaveDifficulty(i);
     const diff = calculateStageDifficulty(i);
+    const maxT = Math.min(64, 10 + Math.floor((i-1)/10) * 5);
+    let cells = 0;
+    for (let x=0;x<8;x++) for (let z=0;z<8;z++) if(diff.map[x][z]) cells++;
     const obs = diff.obstacleRate === 0 ? 'none' : `1/${diff.obstacleRate}`;
-    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} colors=${diff.colors} cores=${diff.targetCores} spawnRate=${diff.spawnRate} obstacles=${obs} turns=${diff.turnLimit}`);
+    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} budget=${maxT} cells=${cells} colors=${diff.colors} cores=${diff.targetCores} turns=${diff.turnLimit} obstacles=${obs}`);
 });

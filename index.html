@@ -244,6 +244,11 @@
         }
         .msg-sub { font-size: var(--font-m); opacity: 0.7; letter-spacing: 2px; transition: opacity 1s; }
         .msg-alert { color: var(--col-alert) !important; text-shadow: 0 0 30px var(--col-alert) !important; }
+        #core-breakdown { opacity:0; transition:opacity 0.8s; margin-top:6px; text-align:left; font-family:'Orbitron',sans-serif; font-size:12px; min-width:220px; letter-spacing:1px; }
+        #core-breakdown .cb-row { display:flex; justify-content:space-between; gap:24px; padding:3px 0; opacity:0.8; }
+        #core-breakdown .cb-first { color:var(--col-accent); }
+        #core-breakdown .cb-sep { border-top:1px solid rgba(255,255,255,0.25); margin:6px 0; }
+        #core-breakdown .cb-total { display:flex; justify-content:space-between; gap:24px; font-size:15px; font-weight:900; color:var(--col-accent); letter-spacing:2px; padding:3px 0; text-shadow:0 0 12px var(--col-accent); }
 
         @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
@@ -738,6 +743,7 @@
         <div class="banner-clean overlay-content">
             <div id="message-text" class="msg-title">STAGE CLEAR</div>
             <div id="message-sub" class="msg-sub">Next Sector Unlocked</div>
+            <div id="core-breakdown" style="display:none;"></div>
             <div style="height: 20px;"></div>
             <button id="btn-title" class="btn-base" style="width: auto; padding: 12px 50px; display:none;">RETURN</button>
         </div>
@@ -1972,15 +1978,19 @@
             const msg = document.getElementById('message-overlay');
             const txt = document.getElementById('message-text');
             const sub = document.getElementById('message-sub');
+            const bdv = document.getElementById('core-breakdown');
+
+            // Collect remaining core blocks on board → count as earned CORE
+            const remainingCoresOnBoard = specialBlocks.length;
+            specialBlocks.forEach(mesh => {
+                spawnParticles(mesh.position, new THREE.Color(mesh.userData.colorHex || 0xffffff), 40);
+            });
+            clearedSpecialCount += remainingCoresOnBoard;
+
             const turnBonus = remainingTurns * 10;
             const startScore = currentScore; currentScore += turnBonus;
             const startTurns = remainingTurns;
-            
-            if(isCampaignMode) {
-                totalCores += clearedSpecialCount;
-                saveTotalCores();
-                trySocialPrompt(currentStage);
-            }
+
             if (__cgSdk) __cgSdk.game.happytime();
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
@@ -2000,34 +2010,72 @@
             };
             await animateScoreBonus();
 
-            // Check personal best before showing message
+            // Check personal best
             const _bk='cs_stage_best_'+currentStage;
             const _pb=parseInt(localStorage.getItem(_bk))||0;
             const isNewHighScore = currentScore > _pb;
             if(isNewHighScore) localStorage.setItem(_bk, currentScore);
-            // Post to Playgama leaderboard if supported
             if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
                 bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
             }
-            // Set dynamic stage clear message
+
+            // CORE breakdown
+            const earnedCore = clearedSpecialCount;
+            const scoreBonus = Math.floor(currentScore / 1000);
+            const firstClearBonus = (_pb === 0) ? 1 : 0;
+            const totalEarned = earnedCore + scoreBonus + firstClearBonus;
+
+            if(isCampaignMode) {
+                totalCores += totalEarned;
+                saveTotalCores();
+                trySocialPrompt(currentStage);
+            }
+
             txt.innerText = 'STAGE CLEAR';
-            sub.innerText = isNewHighScore ? 'NEW HIGH SCORE!' : `+${clearedSpecialCount} CORE`;
+            sub.style.display = 'none';
+
+            if(isCampaignMode && bdv) {
+                let html = `<div class="cb-row"><span>EARNED CORE</span><span>+${earnedCore}</span></div>`;
+                html += `<div class="cb-row"><span>SCORE BONUS</span><span>+${scoreBonus}</span></div>`;
+                if(firstClearBonus > 0) html += `<div class="cb-row cb-first"><span>FIRST CLEAR</span><span>+1</span></div>`;
+                html += `<div class="cb-sep"></div>`;
+                html += `<div class="cb-total"><span>TOTAL CORE</span><span id="cb-total-val">0</span></div>`;
+                bdv.innerHTML = html;
+                bdv.style.display = 'block';
+                bdv.style.opacity = '0';
+            }
 
             setCinematicGlass(true);
             await new Promise(r => safeTimeout(r, 1000));
 
             msg.style.display='flex'; msg.style.opacity = 1;
             setTimeout(()=> { txt.style.opacity=1; txt.style.transform='translateY(0)'; }, 300);
-            setTimeout(()=>sub.style.opacity=1, 800);
+            if(isCampaignMode && bdv) {
+                setTimeout(()=>{ bdv.style.opacity='1'; }, 700);
+                setTimeout(()=>{
+                    const totalEl = document.getElementById('cb-total-val');
+                    if(!totalEl) return;
+                    const dur = 1200; const tStart = performance.now();
+                    const animTotal = () => {
+                        const progress = Math.min((performance.now()-tStart)/dur, 1);
+                        const ease = 1 - Math.pow(1-progress, 3);
+                        totalEl.innerText = Math.round(totalEarned * ease);
+                        if(progress < 1) requestAnimationFrame(animTotal);
+                    };
+                    requestAnimationFrame(animTotal);
+                }, 1000);
+            }
 
             // Show interstitial during the natural pause (stage clear screen is visible)
             showInterstitialAd();
 
-            await new Promise(r=>setTimeout(r,4000));
+            await new Promise(r=>setTimeout(r,4500));
             msg.style.opacity=0;
             await new Promise(r=>setTimeout(r,1000));
             msg.style.display='none';
-            txt.style.opacity=0; sub.style.opacity=0; txt.style.transform='translateY(20px)';
+            txt.style.opacity=0; txt.style.transform='translateY(20px)';
+            if(bdv){ bdv.style.display='none'; bdv.style.opacity='0'; }
+            sub.style.display=''; sub.style.opacity='0';
             // Fade to black, then show stage select
             const _gfo=document.getElementById('game-fade-overlay');
             if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
@@ -2687,7 +2735,9 @@
                     document.getElementById('ss-btn-play').addEventListener('click',()=>{
                         if(!ssActive||appState!=='SELECT')return;
                         if(!unlockedStagesSet.has(targetFocusIndex+1)){
-                            _showUnlockDialog();
+                            const cost=Math.floor(targetFocusIndex/10)+1;
+                            if(totalCores>=cost) _doUnlock();
+                            else _showUnlockDialog();
                             return;
                         }
                         _playStart();appState='ENTERING_STAGE';
