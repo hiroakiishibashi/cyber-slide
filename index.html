@@ -2024,10 +2024,15 @@
                 bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
             }
 
+            // First clear detection (separate key, independent of score)
+            const _ck='cs_stage_cleared_'+currentStage;
+            const isFirstClear = !localStorage.getItem(_ck);
+            if(isFirstClear) localStorage.setItem(_ck,'1');
+
             // CORE breakdown
             const earnedCore = clearedSpecialCount;
             const scoreBonus = Math.floor(currentScore / 1000);
-            const firstClearBonus = (_pb === 0) ? 1 : 0;
+            const firstClearBonus = isFirstClear ? 1 : 0;
             const totalEarned = earnedCore + scoreBonus + firstClearBonus;
 
             if(isCampaignMode) {

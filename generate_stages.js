@@ -1,5 +1,5 @@
-// generate_stages.js v4
-// Tile-count-based progression: stage 1-10 max 10 tiles, +5 per 10 stages
+// generate_stages.js v5
+// Tile-count-based progression: stage 1-10 max 15 tiles, +5 per 10 stages
 // No peninsula cells (each cell needs 2+ neighbors)
 // Halved turn limits, significantly more target cores
 // Run: node generate_stages.js
@@ -128,7 +128,7 @@ function removePeninsulas(map, minCells) {
 // maxTiles: tile budget = min(64, 10 + floor((stage-1)/10)*5)
 function getBoardShape(stage) {
     const sz = Math.min(8, Math.max(4, 3 + Math.floor((stage - 1) / 10)));
-    const maxTiles = Math.min(64, 10 + Math.floor((stage - 1) / 10) * 5);
+    const maxTiles = Math.min(64, 15 + Math.floor((stage - 1) / 10) * 5);
     const st = (stage - 1) % 18;
     const map = emptyMap();
 
