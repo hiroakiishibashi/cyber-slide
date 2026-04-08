@@ -317,17 +317,24 @@ function calculateStageDifficulty(stage) {
     const d = getWaveDifficulty(stage);
     const globalT = (stage - 1) / 299;
 
-    // --- Spawn rate ---
+    // --- Spawn rate (how many blocks between each CORE appearance) ---
+    // Lower = COREs appear more often = easier to collect
     const spawnRate = Math.round(Math.max(3, 10 - d * 7));
 
-    // --- Target cores (significantly more than before) ---
-    // Stage 1 ≈ 8, Stage 150 ≈ 40, Stage 300 ≈ 80
-    const targetCores = Math.min(80, Math.max(5,
-        Math.round(5 + (d * 0.4 + globalT * 0.6) * 75)
+    // --- Spawn amount per turn ---
+    const spawnAmount = Math.max(1, 1 + Math.floor(d * 2));
+
+    // --- Target cores ---
+    // ~2x the old formula: stage 1 ≈ 2, stage 150 ≈ 9, stage 300 ≈ 20
+    const targetCores = Math.min(20, Math.max(2,
+        Math.round(d * 20 * (0.3 + 0.7 * globalT))
     ));
 
-    // --- Turn limit (halved from previous formula) ---
-    const turnLimit = Math.round(Math.max(15, (targetCores * 2.5 + 25) / 2));
+    // --- Turn limit: derived from clearability ---
+    // Player needs at least (targetCores * spawnRate / spawnAmount) turns to see enough COREs.
+    // Multiply by 2.5 for comfortable margin (board filling, matching time, suboptimal play).
+    const minTurnsNeeded = Math.ceil(targetCores * spawnRate / spawnAmount * 2.5);
+    const turnLimit = Math.max(15, minTurnsNeeded);
 
     // --- Obstacle rate ---
     let obstacleRate = 0;
@@ -342,7 +349,7 @@ function calculateStageDifficulty(stage) {
         h: shape.h,
         map: shape.map,
         colors:      Math.min(6, Math.max(2, 2 + Math.floor(d * 4))),
-        spawnAmount: Math.max(1, 1 + Math.floor(d * 2)),
+        spawnAmount,
         spawnRate,
         targetCores,
         obstacleRate,
@@ -400,22 +407,20 @@ fs.writeFileSync('stages.json', JSON.stringify({ stages }, null, 2));
 console.log(`Generated stages.json with ${stages.length} stages.`);
 
 // --- Verification report ---
-console.log('\n=== Tile Count & Difficulty (stages 1–30) ===');
-for (let i = 1; i <= 30; i++) {
-    const shape = getBoardShape(i);
+console.log('\n=== Clearability check (stages 1–20): minTurns vs turnLimit ===');
+for (let i = 1; i <= 20; i++) {
     const diff = calculateStageDifficulty(i);
-    const maxT = Math.min(64, 10 + Math.floor((i-1)/10) * 5);
+    const minT = Math.ceil(diff.targetCores * diff.spawnRate / diff.spawnAmount);
+    const ratio = (diff.turnLimit / minT).toFixed(2);
     let cells = 0;
-    for (let x=0;x<8;x++) for (let z=0;z<8;z++) if(shape.map[x][z]) cells++;
-    console.log(`  Stage ${String(i).padStart(3)}: budget=${String(maxT).padStart(2)} cells=${String(cells).padStart(2)} cores=${String(diff.targetCores).padStart(2)} turns=${String(diff.turnLimit).padStart(3)}`);
+    for (let x=0;x<8;x++) for (let z=0;z<8;z++) if(diff.map[x][z]) cells++;
+    console.log(`  Stage ${String(i).padStart(3)}: cells=${String(cells).padStart(2)} cores=${String(diff.targetCores).padStart(2)} spawnRate=${diff.spawnRate} minTurns=${String(minT).padStart(3)} turns=${String(diff.turnLimit).padStart(3)} ratio=${ratio}x`);
 }
 console.log('\n=== Key milestones ===');
 [1,50,100,150,200,250,300].forEach(i => {
     const d = getWaveDifficulty(i);
     const diff = calculateStageDifficulty(i);
-    const maxT = Math.min(64, 10 + Math.floor((i-1)/10) * 5);
-    let cells = 0;
-    for (let x=0;x<8;x++) for (let z=0;z<8;z++) if(diff.map[x][z]) cells++;
+    const minT = Math.ceil(diff.targetCores * diff.spawnRate / diff.spawnAmount);
     const obs = diff.obstacleRate === 0 ? 'none' : `1/${diff.obstacleRate}`;
-    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} budget=${maxT} cells=${cells} colors=${diff.colors} cores=${diff.targetCores} turns=${diff.turnLimit} obstacles=${obs}`);
+    console.log(`  Stage ${String(i).padStart(3)}: d=${d.toFixed(3)} cores=${diff.targetCores} spawnRate=${diff.spawnRate} spawn=${diff.spawnAmount} minTurns=${minT} turns=${diff.turnLimit} (${(diff.turnLimit/minT).toFixed(1)}x) obstacles=${obs}`);
 });
