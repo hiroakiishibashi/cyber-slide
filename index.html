@@ -410,6 +410,9 @@
             color: rgba(255,255,255,0.4); font-size: 0.68rem; letter-spacing: 4px;
             text-transform: uppercase; margin-top: -12px;
         }
+        #ss-btn-bgm {
+            position: absolute; top: 14px; right: 16px; z-index: 35;
+        }
         .ss-bgm-toggle {
             background: transparent; border: 1px solid rgba(255,255,255,0.28);
             color: rgba(255,255,255,0.55); padding: 6px 16px; border-radius: 20px;
@@ -787,11 +790,12 @@
     <div id="ss-overlay">
         <div id="ss-fade-overlay"></div>
         <div id="ss-canvas-container"></div>
+        <!-- Single shared BGM/SE toggle — always visible top-right -->
+        <button id="ss-btn-bgm" class="ss-bgm-toggle">OFF</button>
         <div id="ss-title-layer">
             <div class="ss-title-logo">CYBER SLIDE</div>
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
             <button id="ss-btn-title-start">START</button>
-            <button id="ss-btn-bgm-title" class="ss-bgm-toggle">BGM: ON</button>
             <div class="ss-title-footer">
                 <span class="ss-title-version">Production v25</span>
                 <button class="ss-title-settings-btn" id="ss-btn-title-settings">SETTINGS</button>
@@ -800,7 +804,6 @@
         <div id="ss-ui-layer">
             <div id="ss-header">
                 <button id="ss-btn-back">◄ BACK</button>
-                <button id="ss-btn-bgm-header" class="ss-bgm-toggle">BGM: ON</button>
             </div>
             <div id="ss-center-top-ui">
                 <div id="ss-stage-name-display">STAGE 1</div>
@@ -1181,7 +1184,9 @@
             if (isSoundMuted && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
             }
-            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'BGM: OFF':'BGM: ON');
+            if (window._ss_setMuted) window._ss_setMuted(isSoundMuted);
+            // Button label shows the action: "OFF" = click to turn off (currently ON), "ON" = click to turn on (currently OFF)
+            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'ON':'OFF');
         }
 
         function clearAllTimeouts() { timeouts.forEach(t => clearTimeout(t)); timeouts = []; if(animationFrameId) cancelAnimationFrame(animationFrameId); }
@@ -2332,6 +2337,13 @@
             let _bgmFilter = null, _bgmDelay = null;
             let _soundOn = true, _audioInit = false;
 
+            // Exposed so toggleSound() can mute/unmute stage-select audio
+            window._ss_setMuted = function(muted) {
+                _soundOn = !muted;
+                if (_bgmGain && _audioCtx) _bgmGain.gain.setTargetAtTime(muted ? 0 : 0.4, _audioCtx.currentTime, 0.3);
+                if (_seGain && _audioCtx) _seGain.gain.setTargetAtTime(muted ? 0 : 0.5, _audioCtx.currentTime, 0.3);
+            };
+
             function _initAudio() {
                 if (_audioInit) return;
                 _audioInit = true;
@@ -2648,7 +2660,7 @@
                 if(_bgmFilter&&_bgmGain&&_audioCtx){
                     const d=_curLookAt.distanceTo(_vLookAt);
                     _bgmFilter.frequency.setTargetAtTime(800+Math.min(d*80,4000),_audioCtx.currentTime,0.1);
-                    if(appState==='SELECT'||appState==='ZOOMING_IN_FROM_TITLE')_bgmGain.gain.setTargetAtTime(0.4+Math.min(d*0.006,0.4),_audioCtx.currentTime,0.1);
+                    if(appState==='SELECT'||appState==='ZOOMING_IN_FROM_TITLE')_bgmGain.gain.setTargetAtTime(_soundOn?(0.4+Math.min(d*0.006,0.4)):0,_audioCtx.currentTime,0.1);
                 }
                 if(appState!=='TITLE'&&_nodes[targetFocusIndex]){
                     const tnp=_nodes[targetFocusIndex].position;
@@ -2705,10 +2717,29 @@
 
                     // Events
                     document.getElementById('ss-btn-title-start').addEventListener('click',()=>{
-                        _ensureAudio();if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,0.5);
+                        const _isFirstRun = !localStorage.getItem('cs_first_run_v1');
+                        _ensureAudio();if(_bgmGain)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,0.5);
                         _playStart();appState='ZOOMING_IN_FROM_TITLE';_flare.visible=true;_pMesh.visible=true;
                         _titleLayer.style.opacity='0';_titleLayer.style.pointerEvents='none';_canvasCont.style.filter='blur(0px)';
-                        setTimeout(()=>{appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();},2500);
+                        setTimeout(()=>{
+                            if(_isFirstRun) {
+                                // Focus stage 1 and navigate camera to it
+                                targetFocusIndex=0;
+                                _vLookAt.copy(_nodes[0].position);
+                            }
+                            appState='SELECT';_uiLayer.style.opacity='1';_uiLayer.style.pointerEvents='auto';_updateUI();
+                            if(_isFirstRun) {
+                                localStorage.setItem('cs_first_run_v1','1');
+                                // Brief pause to show stage 1, then auto-start
+                                setTimeout(()=>{
+                                    _playStart();appState='ENTERING_STAGE';
+                                    _uiLayer.style.opacity='0';_uiLayer.style.pointerEvents='none';
+                                    if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0,_audioCtx.currentTime,1.0);
+                                    setTimeout(()=>_fadeOvl.style.opacity='1',800);
+                                    setTimeout(()=>{appState='IN_STAGE';ssAnimating=false;window._ss_launchGame(0);},1800);
+                                },1500);
+                            }
+                        },2500);
                     });
                     document.getElementById('ss-btn-back').addEventListener('click',()=>{
                         if(appState==='TITLE')return;
@@ -2776,10 +2807,8 @@
                         _cam.aspect=window.innerWidth/window.innerHeight;_cam.updateProjectionMatrix();
                         _rdr.setSize(window.innerWidth,window.innerHeight);_comp.setSize(window.innerWidth,window.innerHeight);
                     });
-                    // BGM toggle buttons (both title and select header)
-                    document.querySelectorAll('.ss-bgm-toggle').forEach(el=>{
-                        el.addEventListener('click',()=>toggleSound());
-                    });
+                    // Single shared BGM/SE toggle button
+                    document.getElementById('ss-btn-bgm').addEventListener('click',()=>toggleSound());
                     // Settings button in title layer
                     const _settingsBtn=document.getElementById('ss-btn-title-settings');
                     if(_settingsBtn) _settingsBtn.addEventListener('click',()=>{
@@ -2842,7 +2871,7 @@
                     // Show stage select in TITLE state: blurred starfield + title layer
                     ssActive=true;
                     _ensureAudio();
-                    if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
+                    if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,1.0);
                     _fadeOvl.style.transition='none'; _fadeOvl.style.opacity='0';
                     requestAnimationFrame(()=>{ _fadeOvl.style.transition='opacity 1s ease-in-out'; });
                     _titleLayer.style.opacity='1'; _titleLayer.style.pointerEvents='auto';
@@ -2855,7 +2884,7 @@
 
                 show(){
                     ssActive=true;_ensureAudio();
-                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,0.5);
+                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,0.5);
                     _fadeOvl.style.opacity='0';
                     _titleLayer.style.opacity='0';_titleLayer.style.pointerEvents='none';
                     _canvasCont.style.filter='blur(0px)';
@@ -2868,7 +2897,7 @@
 
                 returnFromGame(isClear, gameMaxUnlocked){
                     ssActive=true; _ensureAudio();
-                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(0.4,_audioCtx.currentTime,1.0);
+                    if(_bgmGain)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,1.0);
                     _flare.visible=true; _pMesh.visible=true;
                     const el=document.getElementById('ss-core-count');if(el)el.innerText=totalCores;
                     // Fade in: start black, then reveal starfield
