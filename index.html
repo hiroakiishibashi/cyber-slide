@@ -2954,6 +2954,10 @@
                     // Editor Test Play: skip title/stage select, go straight to game
                     if (editorTestMode) {
                         editorTestMode = false;
+                        // Hide ss-overlay completely so its canvas/handlers can't intercept game clicks
+                        const _ssOvl = document.getElementById('ss-overlay');
+                        _ssOvl.style.display = 'none';
+                        _ssOvl.style.pointerEvents = 'none';
                         isCampaignMode = true; currentStage = 1;
                         document.getElementById('game-ui').style.display='flex';
                         gameActive = true; initAudio(); startBGM();
