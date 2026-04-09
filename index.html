@@ -878,7 +878,8 @@
         let grid = [], allBlocks = [], specialBlocks = [], particles = [], effectBeams = [];
         let GRID_W = 6, GRID_H = 6, TARGET_SPECIAL_CLEARS = 3, SPAWN_COUNT = 2; 
         let SPECIAL_SPAWN_INTERVAL = 10, OBSTACLE_SPAWN_INTERVAL = 0, TURN_LIMIT = 20; 
-        let validGrid = []; 
+        let validGrid = [];
+        let boardOffX = 0, boardOffZ = 0; // centroid-based board offset (world coords)
         
         // GLOBAL DEFINITIONS
         let totalBlocksSpawned = 0, VOICE_VOLUME = 0.6, SOUND_VOLUME = 1.0; 
@@ -1409,15 +1410,12 @@
             const tileMat = new THREE.MeshStandardMaterial({ color: visuals.plane, roughness:0.4, metalness:0.2 });
             const lineMat = new THREE.LineBasicMaterial({ color: visuals.gridColor, transparent: true, opacity: 0.3 });
             
-            const offX = (w * SPACING) / 2 - SPACING/2;
-            const offZ = (h * SPACING) / 2 - SPACING/2;
-
             for(let x=0; x<w; x++) {
                 for(let z=0; z<h; z++) {
-                    if(!validGrid[x][z]) continue; 
+                    if(!validGrid[x][z]) continue;
 
-                    const cx = x * SPACING - offX;
-                    const cz = z * SPACING - offZ;
+                    const cx = x * SPACING - boardOffX;
+                    const cz = z * SPACING - boardOffZ;
                     
                     const tile = new THREE.Mesh(tileGeo, tileMat);
                     tile.position.set(cx, -0.5, cz);
@@ -1500,8 +1498,16 @@
             const aspect   = window.innerWidth / window.innerHeight;
             const hHalf    = Math.atan(Math.tan(vHalf) * aspect);
 
-            const halfW = (GRID_W * SPACING) / 2;
-            const halfH = (GRID_H * SPACING) / 2;
+            // Compute actual extents from centroid across placed tiles
+            let maxWx = 0, maxHz = 0;
+            for (let x = 0; x < GRID_W; x++) for (let z = 0; z < GRID_H; z++) {
+                if (validGrid[x] && validGrid[x][z]) {
+                    maxWx = Math.max(maxWx, Math.abs(x * SPACING - boardOffX));
+                    maxHz = Math.max(maxHz, Math.abs(z * SPACING - boardOffZ));
+                }
+            }
+            const halfW = maxWx + SPACING / 2;
+            const halfH = maxHz + SPACING / 2;
 
             // Minimum D so the near bottom edge (worst case) stays on screen:
             const D_vert  = (0.781 * halfH / Math.tan(vHalf) + 0.625 * halfH) / 1.281;
@@ -1533,9 +1539,17 @@
                 if(!validGrid.length) { for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; } }
             }
 
-            if(planeMesh) { planeMesh.geometry.dispose(); planeMesh.visible = false; } 
-            
-            if(gridObject) { 
+            // Compute centroid of placed tiles → board offset so actual tile center = origin
+            { let sx = 0, sz = 0, cnt = 0;
+              for (let x = 0; x < GRID_W; x++) for (let z = 0; z < GRID_H; z++)
+                  if (validGrid[x] && validGrid[x][z]) { sx += x; sz += z; cnt++; }
+              boardOffX = cnt > 0 ? (sx / cnt) * SPACING : (GRID_W * SPACING) / 2 - SPACING / 2;
+              boardOffZ = cnt > 0 ? (sz / cnt) * SPACING : (GRID_H * SPACING) / 2 - SPACING / 2;
+            }
+
+            if(planeMesh) { planeMesh.geometry.dispose(); planeMesh.visible = false; }
+
+            if(gridObject) {
                 pivotGroup.remove(gridObject); 
                 gridObject.traverse(child => { if(child.geometry) child.geometry.dispose(); if(child.material) { if(Array.isArray(child.material)) child.material.forEach(m=>m.dispose()); else child.material.dispose(); } });
             }
@@ -1556,14 +1570,14 @@
                 setCinematicGlass(false);
             }
 
-            const ic=Math.floor(GRID_W*GRID_H*0.4); const offX=(GRID_W*SPACING)/2 - SPACING/2; const offZ=(GRID_H*SPACING)/2 - SPACING/2;
+            const ic=Math.floor(GRID_W*GRID_H*0.4);
             let ps=[]; for(let x=0;x<GRID_W;x++)for(let z=0;z<GRID_H;z++) { if(validGrid[x][z]) ps.push({x,z}); }
             ps.sort(()=>Math.random()-0.5);
             let sp=[]; for(let i=0;i<Math.min(ic, ps.length);i++) { sp.push({pos:ps[i], ci:Math.floor(Math.random()*activeColors.length), is:false, isObs:false}); }
-            sp.forEach(s=>createLightBeam(new THREE.Vector3(s.pos.x*SPACING-offX, 0, s.pos.z*SPACING-offZ), new THREE.Color(activeColors[s.ci])));
-            if(gameActive) playSpawnAmbientSE(Math.min(sp.length, 5)); 
+            sp.forEach(s=>createLightBeam(new THREE.Vector3(s.pos.x*SPACING-boardOffX, 0, s.pos.z*SPACING-boardOffZ), new THREE.Color(activeColors[s.ci])));
+            if(gameActive) playSpawnAmbientSE(Math.min(sp.length, 5));
             await new Promise(r=>safeTimeout(r, 600));
-            sp.forEach(s=> { const b=createBlock(s.pos.x, s.pos.z, s.ci, s.is, offX, offZ, false); if(b) { totalBlocks++; animateMaterialize(b.mesh); } });
+            sp.forEach(s=> { const b=createBlock(s.pos.x, s.pos.z, s.ci, s.is, boardOffX, boardOffZ, false); if(b) { totalBlocks++; animateMaterialize(b.mesh); } });
             nextSpawnQueue = []; fillSpawnQueue(); updateNextUI();
             await new Promise(r=>safeTimeout(r, 400)); hasSpawnedThisTurn = true; isProcessing=false; runMatchPhase();
         }
@@ -1669,10 +1683,8 @@
         
         function animateBlocksMovement(ms, cb) { 
             if(animationFrameId) cancelAnimationFrame(animationFrameId);
-            const offX=(GRID_W*SPACING)/2-SPACING/2; 
-            const offZ=(GRID_H*SPACING)/2-SPACING/2; 
             const st=performance.now(); const sid = currentSessionId;
-            ms.forEach(m=>{ m.sx=m.block.mesh.position.x; m.sz=m.block.mesh.position.z; m.ttx=m.tx*SPACING-offX; m.ttz=m.tz*SPACING-offZ; m.block.mesh.userData.gx=m.tx; m.block.mesh.userData.gz=m.tz; }); 
+            ms.forEach(m=>{ m.sx=m.block.mesh.position.x; m.sz=m.block.mesh.position.z; m.ttx=m.tx*SPACING-boardOffX; m.ttz=m.tz*SPACING-boardOffZ; m.block.mesh.userData.gx=m.tx; m.block.mesh.userData.gz=m.tz; }); 
             function u(t){ if(sid !== currentSessionId) return; const el=t-st; const p=Math.min(el/MOVE_DURATION,1); const e=1-Math.pow(1-p,3); ms.forEach(m=>{ m.block.mesh.position.x=m.sx+(m.ttx-m.sx)*e; m.block.mesh.position.z=m.sz+(m.ttz-m.sz)*e; }); if(p<1) { animationFrameId = requestAnimationFrame(u); } else { animationFrameId = null; cb(); } } 
             animationFrameId = requestAnimationFrame(u); 
         }
@@ -1802,28 +1814,24 @@
             hasSpawnedThisTurn=true; turnCount++; 
             let spots=getOrderedEmptySpots(); 
             if(spots.length===0){ triggerBoardCollapse(); return; } 
-            const cnt=Math.min(spots.length, SPAWN_COUNT); 
-            const offX=(GRID_W*SPACING)/2-SPACING/2;
-            const offZ=(GRID_H*SPACING)/2-SPACING/2;
-            let sps=[]; 
+            const cnt=Math.min(spots.length, SPAWN_COUNT);
+            let sps=[];
             for(let i=0; i<cnt; i++) {
                 if(nextSpawnQueue.length === 0) fillSpawnQueue();
-                const nextItem = nextSpawnQueue.shift(); 
+                const nextItem = nextSpawnQueue.shift();
                 sps.push({ pos: spots[i], is: nextItem.type === 'special', isObs: nextItem.type === 'obstacle', color: nextItem.colorHex });
             }
             updateNextUI();
             if(gameActive) {
                 let hasObstacle = sps.some(s => s.isObs); let hasSpecial = sps.some(s => s.is);
-                if(hasObstacle) { showBannerMessage("OBSTACLE!", "WARNING", "warn"); speak("Warning"); } 
+                if(hasObstacle) { showBannerMessage("OBSTACLE!", "WARNING", "warn"); speak("Warning"); }
                 else if(hasSpecial) { showBannerMessage("CORE BLOCK", "BONUS", "special"); speak("Special Block"); }
             }
 
-            sps.forEach(s=>{ let col = s.isObs ? 0xaa0000 : (s.color || 0xffffff); createLightBeam(new THREE.Vector3(s.pos.x*SPACING-offX,0,s.pos.z*SPACING-offZ),new THREE.Color(col)); }); 
-            if(gameActive) playSpawnAmbientSE(sps.length); 
-            await new Promise(r=>safeTimeout(r,500)); 
-            const currentOffX=(GRID_W*SPACING)/2-SPACING/2; 
-            const currentOffZ=(GRID_H*SPACING)/2-SPACING/2; 
-            sps.forEach(s=>{ const b=createBlock(s.pos.x,s.pos.z, -1, s.is, currentOffX, currentOffZ, s.isObs, s.color); if(b) { totalBlocks++; animateMaterialize(b.mesh); } }); 
+            sps.forEach(s=>{ let col = s.isObs ? 0xaa0000 : (s.color || 0xffffff); createLightBeam(new THREE.Vector3(s.pos.x*SPACING-boardOffX,0,s.pos.z*SPACING-boardOffZ),new THREE.Color(col)); });
+            if(gameActive) playSpawnAmbientSE(sps.length);
+            await new Promise(r=>safeTimeout(r,500));
+            sps.forEach(s=>{ const b=createBlock(s.pos.x,s.pos.z, -1, s.is, boardOffX, boardOffZ, s.isObs, s.color); if(b) { totalBlocks++; animateMaterialize(b.mesh); } });
             updateUIInfo(); await new Promise(r=>safeTimeout(r,300)); runMatchPhase(); 
         }
         
