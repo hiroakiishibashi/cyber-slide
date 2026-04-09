@@ -1718,7 +1718,7 @@
                      const rec = comboCount; 
                      remainingTurns += rec;
                      updateUIInfo();
-                     showBannerMessage("TIME UP!", `+${rec}`, "special"); 
+                     showBannerMessage("TURN BONUS", `+${rec} TURNS`, "special");
                 }
 
                 let sp=[]; m.forEach(b=>{if(b.isSpecial)sp.push(b)}); 
@@ -1749,7 +1749,7 @@
             blks.forEach((b,i)=>{ 
                 safeTimeout(()=>{ 
                     if(gameActive) {
-                        if(b.isObstacle) { playObstacleBreak(audioCtx.currentTime); createScorePopup(b.mesh.position, 50 * comboCount); spawnVortexParticles(b.mesh.position); remainingTurns += 3; updateUIInfo(); showStageBanner(0, "TIME EXTEND", "+3 TURNS", "special"); speak("Time Extend"); } 
+                        if(b.isObstacle) { playObstacleBreak(audioCtx.currentTime); createScorePopup(b.mesh.position, 50 * comboCount); spawnVortexParticles(b.mesh.position); remainingTurns += 3; updateUIInfo(); showBannerMessage("TURN EXTEND", "+3 TURNS", "special"); speak("Turn Extended"); }
                         else { playBlockPop(audioCtx.currentTime); let base = b.isSpecial ? 100 : 10; createScorePopup(b.mesh.position, base * comboCount); spawnParticles(b.mesh.position,new THREE.Color(b.mesh.userData.colorHex),15,false); }
                     }
                     b.mesh.visible=false; if(i===blks.length-1)safeTimeout(()=>{removeBlocksLogical(blks);cb();},200); 
@@ -1776,7 +1776,7 @@
             all.forEach(b=>{ 
                 let base = b.isSpecial ? 100 : (b.isObstacle ? 50 : 10);
                 if(gameActive && !b.isSpecial) createScorePopup(b.mesh.position, base * comboCount);
-                if(b.isObstacle) { spawnVortexParticles(b.mesh.position); remainingTurns += 3; updateUIInfo(); showStageBanner(0, "TIME EXTEND", "+3 TURNS", "special"); speak("Time Extend"); }
+                if(b.isObstacle) { spawnVortexParticles(b.mesh.position); remainingTurns += 3; updateUIInfo(); showBannerMessage("TURN EXTEND", "+3 TURNS", "special"); speak("Turn Extended"); }
                 else spawnParticles(b.mesh.position,new THREE.Color(b.mesh.userData.colorHex),40); 
                 b.mesh.visible=false; 
             }); 
@@ -2000,7 +2000,7 @@
 
             allBlocks.forEach(b => { spawnParticles(b.position, new THREE.Color(b.userData.colorHex), 30); b.visible = false; });
 
-            showStageBanner(0, "TIME BONUS", `+${turnBonus} PTS`, "special"); speak("Bonus");
+            showBannerMessage("SCORE BONUS", `+${turnBonus} PTS`, "special"); speak("Bonus");
 
             const animateScoreBonus = async () => {
                 const duration = 2000; const st = performance.now();

@@ -123,168 +123,149 @@ function removePeninsulas(map, minCells) {
     }
 }
 
-// --- Board shape generation (18 types) ---
-// sz: base canvas size 4–8 (same progression as before)
-// maxTiles: tile budget = min(64, 10 + floor((stage-1)/10)*5)
+// --- Board shape generation (24 types, always 8×8 canvas) ---
+// All shapes are drawn on full 8×8 grid; maxTiles trims them for early stages.
+// Consecutive stages always use a different shape (24-cycle).
 function getBoardShape(stage) {
-    const sz = Math.min(8, Math.max(4, 3 + Math.floor((stage - 1) / 10)));
     const maxTiles = Math.min(64, 15 + Math.floor((stage - 1) / 10) * 5);
-    const st = (stage - 1) % 18;
+    const st = (stage - 1) % 24;
     const map = emptyMap();
 
     switch (st) {
-        case 0: // Full square
-            fillRect(map, 0, 0, sz, sz);
+        case 0: // Full 8×8 block
+            fillRect(map, 0, 0, 8, 8);
             break;
 
-        case 1: // Wide rectangle
-            fillRect(map, 0, 0, sz, Math.max(2, sz - 1));
+        case 1: // Center 6×6 block
+            fillRect(map, 1, 1, 6, 6);
             break;
 
-        case 2: // Tall rectangle
-            fillRect(map, 0, 0, Math.max(2, sz - 1), sz);
+        case 2: // Plus / cross 2-wide
+            fillRect(map, 0, 3, 8, 2);
+            fillRect(map, 3, 0, 2, 8);
             break;
 
-        case 3: { // Plus / cross
-            const m = Math.floor(sz / 2);
-            fillRect(map, 0, m-1, sz, 2);
-            fillRect(map, m-1, 0, 2, sz);
+        case 3: // X-shape (thick diagonals)
+            for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++)
+                if (Math.abs(x - z) <= 1 || Math.abs(x - (7 - z)) <= 1) map[x][z] = true;
             break;
-        }
 
-        case 4: { // L — bottom-left corner
-            const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, 0, sz, a);
-            fillRect(map, 0, 0, a, sz);
+        case 4: // Diamond (Manhattan distance)
+            for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++)
+                if (Math.abs(x - 3.5) + Math.abs(z - 3.5) < 4.5) map[x][z] = true;
             break;
-        }
 
-        case 5: { // L — top-right corner
-            const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, sz-a, sz, a);
-            fillRect(map, sz-a, 0, a, sz);
+        case 5: // Outer frame 2-wide border
+            fillRect(map, 0, 0, 8, 8);
+            for (let x = 2; x < 6; x++) for (let z = 2; z < 6; z++) map[x][z] = false;
             break;
-        }
 
-        case 6: { // L — bottom-right corner
-            const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, 0, sz, a);
-            fillRect(map, sz-a, 0, a, sz);
+        case 6: // L — top-left corner (2-wide arms)
+            fillRect(map, 0, 5, 8, 3);
+            fillRect(map, 0, 0, 3, 8);
             break;
-        }
 
-        case 7: { // L — top-left corner
-            const a = Math.max(2, Math.ceil(sz * 0.45));
-            fillRect(map, 0, sz-a, sz, a);
-            fillRect(map, 0, 0, a, sz);
+        case 7: // L — top-right corner (2-wide arms)
+            fillRect(map, 0, 5, 8, 3);
+            fillRect(map, 5, 0, 3, 8);
             break;
-        }
 
-        case 8: { // T — bar on top, center pillar going down
-            const pw = Math.max(2, Math.ceil(sz * 0.4));
-            const bh = Math.max(2, Math.ceil(sz * 0.4));
-            const mx = Math.floor((sz - pw) / 2);
-            fillRect(map, 0, sz-bh, sz, bh);
-            fillRect(map, mx, 0, pw, sz);
+        case 8: // L — bottom-left corner (2-wide arms)
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 0, 0, 3, 8);
             break;
-        }
 
-        case 9: { // T — bar on bottom, center pillar going up
-            const pw = Math.max(2, Math.ceil(sz * 0.4));
-            const bh = Math.max(2, Math.ceil(sz * 0.4));
-            const mx = Math.floor((sz - pw) / 2);
-            fillRect(map, 0, 0, sz, bh);
-            fillRect(map, mx, 0, pw, sz);
+        case 9: // L — bottom-right corner (2-wide arms)
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 5, 0, 3, 8);
             break;
-        }
 
-        case 10: { // U-shape (open top)
-            const aw = Math.max(2, Math.ceil(sz * 0.35));
-            const bh = Math.max(2, Math.ceil(sz * 0.35));
-            fillRect(map, 0, 0, sz, bh);
-            fillRect(map, 0, 0, aw, sz);
-            fillRect(map, sz-aw, 0, aw, sz);
+        case 10: // T — top bar + center stem down
+            fillRect(map, 0, 5, 8, 3);
+            fillRect(map, 3, 0, 2, 8);
             break;
-        }
 
-        case 11: { // C-shape (open right)
-            const aw = Math.max(2, Math.ceil(sz * 0.35));
-            const sh = Math.max(2, Math.ceil(sz * 0.35));
-            fillRect(map, 0, 0, aw, sz);
-            fillRect(map, 0, 0, sz, sh);
-            fillRect(map, 0, sz-sh, sz, sh);
+        case 11: // T — bottom bar + center stem up
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 3, 0, 2, 8);
             break;
-        }
 
-        case 12: { // Diamond (Manhattan distance from center)
-            const cx = (sz-1)/2, cz = (sz-1)/2, r = (sz-1)/2 + 0.5;
-            for (let x = 0; x < sz; x++)
-                for (let z = 0; z < sz; z++)
-                    if (Math.abs(x-cx) + Math.abs(z-cz) <= r) map[x][z] = true;
+        case 12: // T — left bar + center beam right
+            fillRect(map, 0, 0, 3, 8);
+            fillRect(map, 0, 3, 8, 2);
             break;
-        }
 
-        case 13: { // Donut (square with center hole)
-            fillRect(map, 0, 0, sz, sz);
-            const hs = Math.max(0, sz - 4);
-            if (hs > 0) {
-                for (let x = 2; x < 2+hs; x++)
-                    for (let z = 2; z < 2+hs; z++)
-                        map[x][z] = false;
+        case 13: // T — right bar + center beam left
+            fillRect(map, 5, 0, 3, 8);
+            fillRect(map, 0, 3, 8, 2);
+            break;
+
+        case 14: // H-shape
+            fillRect(map, 0, 0, 3, 8);
+            fillRect(map, 5, 0, 3, 8);
+            fillRect(map, 0, 3, 8, 2);
+            break;
+
+        case 15: // U-shape (open top)
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 0, 0, 3, 8);
+            fillRect(map, 5, 0, 3, 8);
+            break;
+
+        case 16: // C-shape (open right)
+            fillRect(map, 0, 0, 3, 8);
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 0, 5, 8, 3);
+            break;
+
+        case 17: // S/Z-shape (two offset rectangles)
+            fillRect(map, 0, 0, 5, 4);
+            fillRect(map, 3, 4, 5, 4);
+            break;
+
+        case 18: // Staircase (3 steps, top-left to bottom-right)
+            fillRect(map, 0, 0, 3, 8);
+            fillRect(map, 3, 2, 3, 6);
+            fillRect(map, 6, 4, 2, 4);
+            break;
+
+        case 19: // Arrow pointing right (V-shape)
+            for (let z = 0; z < 8; z++) {
+                const tip = Math.floor(Math.abs(z - 3.5));
+                for (let x = tip; x < 8; x++) map[x][z] = true;
             }
             break;
-        }
 
-        case 14: { // Staircase
-            const step = Math.max(1, Math.floor(sz / 3));
-            for (let s = 0; s < 3; s++) {
-                const x0 = s * step;
-                const z1 = sz - 1 - s * step;
-                const z0 = Math.max(0, z1 - step + 1);
-                fillRect(map, x0, z0, sz - x0, z1 - z0 + 1);
-            }
+        case 20: // Donut (2-wide border)
+            fillRect(map, 0, 0, 8, 8);
+            for (let x = 2; x < 6; x++) for (let z = 2; z < 6; z++) map[x][z] = false;
             break;
-        }
 
-        case 15: { // H-shape
-            const aw = Math.max(2, Math.ceil(sz * 0.35));
-            const bh = Math.max(2, Math.ceil(sz * 0.3));
-            const mz = Math.floor((sz - bh) / 2);
-            fillRect(map, 0, 0, aw, sz);
-            fillRect(map, sz-aw, 0, aw, sz);
-            fillRect(map, 0, mz, sz, bh);
+        case 21: // Diagonal band (NW→SE, 2-wide)
+            for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++)
+                if (Math.abs(x - z) <= 2) map[x][z] = true;
             break;
-        }
 
-        case 16: { // Arrow pointing right
-            const mid = Math.floor((sz-1) / 2);
-            for (let z = 0; z < sz; z++) {
-                const dist = Math.abs(z - mid);
-                fillRect(map, dist, z, sz - dist, 1);
-            }
+        case 22: // I-beam (two bars + center bridge)
+            fillRect(map, 0, 0, 8, 2);
+            fillRect(map, 0, 6, 8, 2);
+            fillRect(map, 3, 0, 2, 8);
             break;
-        }
 
-        case 17: { // S-shape / zigzag
-            const segH = Math.ceil(sz / 2);
-            const segW = Math.max(2, Math.ceil(sz * 0.65));
-            fillRect(map, 0, 0, segW, segH);
-            fillRect(map, sz-segW, sz-segH, segW, segH);
-            // Bridge the two halves so they're connected
-            const bx = Math.floor((sz - segW) / 2);
-            fillRect(map, bx, segH-1, segW, 2);
+        case 23: // Zigzag snake (3 offset segments)
+            fillRect(map, 0, 0, 8, 3);
+            fillRect(map, 0, 3, 5, 2);
+            fillRect(map, 3, 5, 5, 3);
             break;
-        }
     }
 
-    // Trim to tile budget (removes boundary/peninsula cells first)
+    // Trim to tile budget (removes boundary cells first, maintains connectivity)
     trimToMaxTiles(map, maxTiles);
 
-    // Remove peninsula cells (cells with < 2 neighbors) — no narrow single-cell connections
-    // Keep at least 4 cells as safety floor
+    // Remove peninsula cells (< 2 neighbors); keep at least 60% of budget
     removePeninsulas(map, Math.max(4, Math.floor(maxTiles * 0.6)));
 
-    // Connectivity check with fallback to compact square
+    // Connectivity check with compact-square fallback
     if (!isConnected(map) || countTiles(map) < 4) {
         const fb = emptyMap();
         const side = Math.min(8, Math.ceil(Math.sqrt(maxTiles)) + 1);
@@ -294,14 +275,14 @@ function getBoardShape(stage) {
         for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) if (fb[x][z]) {
             if (x > maxX) maxX = x; if (z > maxZ) maxZ = z;
         }
-        return { w: maxX+1, h: maxZ+1, map: fb };
+        return { w: maxX + 1, h: maxZ + 1, map: fb };
     }
 
     let maxX = 0, maxZ = 0;
     for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) if (map[x][z]) {
         if (x > maxX) maxX = x; if (z > maxZ) maxZ = z;
     }
-    return { w: maxX+1, h: maxZ+1, map };
+    return { w: maxX + 1, h: maxZ + 1, map };
 }
 
 // --- Wave-based difficulty ---
