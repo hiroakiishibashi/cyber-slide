@@ -1,7 +1,7 @@
-// generate_stages.js v5
-// Tile-count-based progression: stage 1-10 max 15 tiles, +5 per 10 stages
-// No peninsula cells (each cell needs 2+ neighbors)
-// Halved turn limits, significantly more target cores
+// generate_stages.js v6
+// Stages 1-25: hand-crafted maps (preserved from editor)
+// Stages 26-300: procedural with hand-crafted-style shapes
+// All stages include initialFill field
 // Run: node generate_stages.js
 
 const fs = require('fs');
@@ -352,35 +352,255 @@ function generateVisuals(stage) {
     };
 }
 
+// --- Hand-crafted maps for stages 1-25 ---
+// Format: [map, w, h, cores, turns, spawnRate, spawn, obstacles, initialFill]
+// initialFill = fraction of valid tiles pre-filled at stage start
+const HANDCRAFTED = [
+  // Stage 1 — small 3x3 center cluster
+  { map:["00000000","00000000","00000000","00111000","00111000","00111000","00000000","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:0,initialFill:0.30 },
+  // Stage 2 — 2x4 center bar
+  { map:["0000000","0000000","0000000","0011110","0011110","0000000","0000000"], w:7,h:7, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:0,initialFill:0.30 },
+  // Stage 3 — L-shape small
+  { map:["00000000","00000000","00000000","00011110","00011110","00011000","00011000","00000000"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:0,initialFill:0.30 },
+  // Stage 4 — hollow square
+  { map:["00000000","00000000","00111100","00110100","00101100","00111100","00000000","00000000"], w:8,h:8, cores:2,turns:35,spawnRate:7,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 5 — diamond
+  { map:["00000000","00000000","00011000","00111100","00111100","00011000","00000000"], w:8,h:7, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 6 — H-fragment
+  { map:["00000000","00000000","00011011","00011111","00011111","00011011","00000000","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 7 — offset steps
+  { map:["00000000","00000000","00000000","00111000","00111000","00001110","00001110","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 8 — two separate 2x3 pillars
+  { map:["00000000","00000000","01100110","01100110","01100110","00000000","00000000","00000000"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 9 — tiny wide strip
+  { map:["00011101","00010101","00010111"], w:8,h:3, cores:2,turns:35,spawnRate:7,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 10 — mini ring/bracket
+  { map:["00000000","00000000","00000111","00000101","00000101","00000111","00000111","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:0,initialFill:0.35 },
+  // Stage 11 — diagonal ribbon
+  { map:["00000000","00000000","00000000","00011100","00011110","00001111","00000111","00000011"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:11,initialFill:0.35 },
+  // Stage 12 — broken H
+  { map:["00000000","00001110","11101110","11100000","00001100","00001100","00001100","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:10,initialFill:0.35 },
+  // Stage 13 — fat L
+  { map:["00000000","00000000","00000000","01111111","01111111","01100000","01100000","01100000"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:9,initialFill:0.35 },
+  // Stage 14 — staircase
+  { map:["00000000","00000100","00001100","00011110","00111111","00110011","00000000","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+  // Stage 15 — E-shape / comb
+  { map:["00000000","00000000","01111110","00000110","01111110","00000110","01111110","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+  // Stage 16 — checkerboard bands
+  { map:["00000000","01010100","01010100","01010100","00101010","00101010","00101010","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:11,initialFill:0.35 },
+  // Stage 17 — C-bracket
+  { map:["00000011","00000011","00111111","00100000","00100000","00111111","00000011","00000011"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:10,initialFill:0.35 },
+  // Stage 18 — two offset rectangles
+  { map:["11100000","11100000","11100000","00000000","00011111","00011111","00011111","00011111"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:9,initialFill:0.35 },
+  // Stage 19 — double bracket (pair of mini squares)
+  { map:["00000000","00111000","00101000","00111000","00001110","00001010","00001110","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+  // Stage 20 — arrow shape
+  { map:["00000000","00010000","00111000","00010100","00001110","00000100","00000000","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+  // Stage 21 — thin cross/T
+  { map:["00000000","00000000","00001000","00011100","00001000","00001000","00001000","00000000"], w:8,h:8, cores:2,turns:45,spawnRate:9,spawn:1,obstacles:11,initialFill:0.30 },
+  // Stage 22 — diagonal Z
+  { map:["00000000","00000000","00111000","00101100","00110110","00011011","00001101","00000111"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:10,initialFill:0.35 },
+  // Stage 23 — symmetric butterfly
+  { map:["00000000","00001110","00001010","00111010","00100000","00111010","00001010","00001110"], w:8,h:8, cores:2,turns:40,spawnRate:8,spawn:1,obstacles:9,initialFill:0.35 },
+  // Stage 24 — ring / square frame
+  { map:["00000000","01111111","01000001","01011101","01011101","01000001","01111111","00000000"], w:8,h:8, cores:3,turns:53,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+  // Stage 25 — S-curve
+  { map:["00000000","01100000","01111000","00011000","00000110","00011110","00011000","00000000"], w:8,h:8, cores:4,turns:70,spawnRate:7,spawn:1,obstacles:8,initialFill:0.35 },
+];
+
+// --- Hand-crafted-style map library for stages 26-300 ---
+// 55 unique 8x8 map patterns, cycled and varied with difficulty scaling
+const MAP_LIBRARY = [
+  // 26 — plus-ring combo
+  ["00000000","00011000","00111100","01111110","01100110","00111100","00011000","00000000"],
+  // 27 — two diagonal lines
+  ["10000001","11000011","01100110","00111100","00111100","01100110","11000011","10000001"],
+  // 28 — stacked T
+  ["00000000","01111110","00011000","00011000","01111110","00011000","00011000","00000000"],
+  // 29 — pinwheel
+  ["11100000","11100000","00011100","00011100","00000011","11100011","11100000","00000000"],
+  // 30 — anchor
+  ["00011000","00111100","00011000","01111110","01111110","00111100","01011010","11000011"],
+  // 31 — grid spots
+  ["00000000","01001010","00000000","10010100","00000000","01001010","00000000","10010100"],
+  // 32 — bracket pair
+  ["01100110","11000011","10000001","10000001","10000001","10000001","11000011","01100110"],
+  // 33 — X in square
+  ["11111111","11000011","10100101","10011001","10011001","10100101","11000011","11111111"],
+  // 34 — H thick
+  ["01100110","01100110","01111110","01111110","01111110","01111110","01100110","01100110"],
+  // 35 — spiral arm
+  ["00000000","01111100","01000000","01011100","01010000","01111100","00000000","00000000"],
+  // 36 — two L's mirrored
+  ["01100000","01100000","01111100","00000000","00111110","00000110","00000110","00000000"],
+  // 37 — arrow left+right
+  ["00011000","00111100","01111110","11111111","11111111","01111110","00111100","00011000"],
+  // 38 — cross with dots
+  ["10000001","00010000","00111100","01111110","01111110","00111100","00010000","10000001"],
+  // 39 — three stripes
+  ["00000000","11111111","00000000","11111111","00000000","11111111","00000000","00000000"],
+  // 40 — 4 quandrant dots
+  ["01100110","01100110","01100110","00000000","00000000","01100110","01100110","01100110"],
+  // 41 — maze fragment
+  ["11110000","10010000","10011110","10000010","11110010","00010010","00011110","00000000"],
+  // 42 — Z thick
+  ["11111100","00001100","00011000","00110000","01100000","11000000","11111100","00000000"],
+  // 43 — triangle
+  ["00011000","00111100","01111110","11111111","00000000","00000000","00000000","00000000"],
+  // 44 — double ring
+  ["01111110","10000001","10111101","10100101","10100101","10111101","10000001","01111110"],
+  // 45 — cross-hatched arms
+  ["01001010","10100101","01001010","10100101","01001010","10100101","01001010","00000000"],
+  // 46 — half-honeycomb
+  ["01100000","11110000","01101100","00001110","00000110","00001110","01101100","11110000"],
+  // 47 — S-snake wide
+  ["11110000","11110000","00001100","00001100","11110000","11110000","00001111","00001111"],
+  // 48 — nested Ls
+  ["11111111","10000000","10111110","10100000","10101110","10100010","10111110","10000000"],
+  // 49 — polka cross
+  ["00010000","01110100","00010000","10000001","00010000","01110100","00010000","00000000"],
+  // 50 — star of tiles
+  ["00011000","01111110","11111111","01111110","01111110","11111111","01111110","00011000"],
+  // 51 — thin zigzag
+  ["11000000","01100000","00110000","00011000","00001100","00000110","00000011","00000001"],
+  // 52 — wide step-L
+  ["11111000","10001000","10011000","10110000","11100000","00000000","00000000","00000000"],
+  // 53 — crescent
+  ["00111100","01111110","11000011","11000001","11000001","11000011","01111110","00111100"],
+  // 54 — letter N
+  ["11000011","11100011","11110011","11011011","11001111","11000111","11000011","11000011"],
+  // 55 — tiling T
+  ["11111111","00011000","00011000","11111111","00011000","00011000","11111111","00000000"],
+  // 56 — corner notches
+  ["11100111","11000011","10000001","00000000","00000000","10000001","11000011","11100111"],
+  // 57 — two triangles
+  ["10000001","11000011","01100110","00111100","00111100","01100110","11000011","10000001"],
+  // 58 — thin L reverse
+  ["00000111","00000100","00000100","00000100","11111100","10000000","10000000","00000000"],
+  // 59 — open diamond
+  ["00011000","00100100","01000010","10000001","10000001","01000010","00100100","00011000"],
+  // 60 — pipe cross
+  ["00010000","00010000","11111111","00010000","00010000","00010000","11111111","00010000"],
+  // 61 — thick diagonal
+  ["11000000","11100000","01110000","00111000","00011100","00001110","00000111","00000011"],
+  // 62 — two L columns
+  ["10011001","10011001","10011001","10011001","11111111","00000000","00000000","00000000"],
+  // 63 — eye shape
+  ["00111100","01100110","11000011","11111111","11111111","11000011","01100110","00111100"],
+  // 64 — 5-dot (dice face)
+  ["10000001","00000000","00010000","00000000","00010000","00000000","10000001","00000000"],
+  // 65 — half + reverse half
+  ["11110000","11110000","11110000","11110000","00001111","00001111","00001111","00001111"],
+  // 66 — big X
+  ["10000001","01000010","00100100","00011000","00011000","00100100","01000010","10000001"],
+  // 67 — corner squares
+  ["11000011","11000011","00000000","00000000","00000000","00000000","11000011","11000011"],
+  // 68 — thick border
+  ["11111111","11000011","11000011","11000011","11000011","11000011","11000011","11111111"],
+  // 69 — T top
+  ["11111111","11111111","00011000","00011000","00011000","00011000","00011000","00000000"],
+  // 70 — staircase reverse
+  ["00000011","00000111","00001110","00011100","00111000","01110000","11100000","00000000"],
+  // 71 — scattered dots
+  ["10100000","00001010","10000101","01010000","00001010","10100101","00010000","10000010"],
+  // 72 — arch
+  ["00111100","01000010","10000001","10000001","00000000","00000000","00000000","00000000"],
+  // 73 — double bracket H
+  ["11001100","11001100","11111111","11001100","11001100","11111111","11001100","11001100"],
+  // 74 — lightning bolt
+  ["00011110","00011000","00110000","01111110","00000110","00001100","11110000","00000000"],
+  // 75 — circle (approx)
+  ["00111100","01100110","11000011","11000011","11000011","11000011","01100110","00111100"],
+  // 76 — diagonal checker
+  ["10101010","01010101","10101010","01010101","10101010","01010101","10101010","01010101"],
+  // 77 — snowflake arms
+  ["10001000","01010100","00111000","11111110","00111000","01010100","10001000","00000000"],
+  // 78 — interlocked U
+  ["11000011","11000011","11000011","11111111","11111111","00011000","00011000","00011000"],
+  // 79 — asymmetric blob
+  ["00111000","01111100","11111110","11111111","01111100","00111000","00010000","00000000"],
+  // 80 — column pair wide
+  ["01111110","01000010","01000010","01000010","01000010","01000010","01000010","01111110"],
+];
+
+// --- Difficulty parameters for stages 26-300 ---
+function getDiffParams(stage) {
+    const t = (stage - 1) / 299; // 0..1
+    const wave = ((stage - 1) % 5) / 4; // 0..1 within each 5-stage wave
+    const d = t * 0.55 + wave * 0.45;
+
+    const spawnRate = Math.round(Math.max(3, 10 - d * 7));
+    const spawnAmount = Math.max(1, 1 + Math.floor(d * 2));
+    const targetCores = Math.min(20, Math.max(2, Math.round(d * 20 * (0.3 + 0.7 * t))));
+    const minTurns = Math.ceil(targetCores * spawnRate / spawnAmount * 2.5);
+    const turnLimit = Math.max(15, minTurns);
+    const obstacleRate = stage <= 25 ? 0 : Math.max(2, Math.round(12 - d * 10));
+    const colors = Math.min(6, Math.max(2, 2 + Math.floor(d * 4)));
+    // initialFill: starts 0.30 for early stages, climbs to 0.45 for late stages
+    const initialFill = parseFloat((0.30 + t * 0.15).toFixed(2));
+
+    return { spawnRate, spawnAmount, targetCores, turnLimit, obstacleRate, colors, initialFill };
+}
+
+// Convert row-string map to {w, h}
+function mapDims(mapRows) {
+    return { w: mapRows[0].length, h: mapRows.length };
+}
+
 // --- Generate 300 stages ---
 const stages = [];
-for (let i = 1; i <= 300; i++) {
-    const diff = calculateStageDifficulty(i);
-    const vis  = generateVisuals(i);
 
-    let mapRows = [];
-    for (let z = 0; z < diff.h; z++) {
-        let row = '';
-        for (let x = 0; x < diff.w; x++) row += diff.map[x][z] ? '1' : '0';
-        mapRows.push(row);
-    }
-
+// Stages 1-25: hand-crafted
+for (let i = 0; i < 25; i++) {
+    const hc = HANDCRAFTED[i];
+    const vis = generateVisuals(i + 1);
     stages.push({
-        id:       i,
-        w:        diff.w,
-        h:        diff.h,
-        map:      mapRows,
-        colors:   diff.colors,
-        spawn:    diff.spawnAmount,
-        spawnRate: diff.spawnRate,
-        cores:    diff.targetCores,
-        obstacles: diff.obstacleRate,
-        turns:    diff.turnLimit,
+        id:       i + 1,
+        w:        hc.w,
+        h:        hc.h,
+        map:      hc.map,
+        colors:   hc.cores <= 2 ? 2 : 3,
+        spawn:    hc.spawn,
+        spawnRate: hc.spawnRate,
+        cores:    hc.cores,
+        obstacles: hc.obstacles,
+        turns:    hc.turns,
+        initialFill: hc.initialFill,
         theme:    vis.theme,
         palette:  vis.paletteIndex,
         bg:       vis.bg,
         grid:     vis.grid,
-        plane:    vis.plane
+        plane:    vis.plane,
+    });
+}
+
+// Stages 26-300: procedural using MAP_LIBRARY
+for (let i = 26; i <= 300; i++) {
+    const p = getDiffParams(i);
+    const vis = generateVisuals(i);
+
+    // Pick map from library, cycling through with offset so stage 26 = map index 0
+    const mapIdx = (i - 26) % MAP_LIBRARY.length;
+    const mapRows = MAP_LIBRARY[mapIdx];
+    const dims = mapDims(mapRows);
+
+    stages.push({
+        id:       i,
+        w:        dims.w,
+        h:        dims.h,
+        map:      mapRows,
+        colors:   p.colors,
+        spawn:    p.spawnAmount,
+        spawnRate: p.spawnRate,
+        cores:    p.targetCores,
+        obstacles: p.obstacleRate,
+        turns:    p.turnLimit,
+        initialFill: p.initialFill,
+        theme:    vis.theme,
+        palette:  vis.paletteIndex,
+        bg:       vis.bg,
+        grid:     vis.grid,
+        plane:    vis.plane,
     });
 }
 

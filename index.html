@@ -876,8 +876,9 @@
         const BORDER_BASE_GLOW = 0.2;
 
         let grid = [], allBlocks = [], specialBlocks = [], particles = [], effectBeams = [];
-        let GRID_W = 6, GRID_H = 6, TARGET_SPECIAL_CLEARS = 3, SPAWN_COUNT = 2; 
-        let SPECIAL_SPAWN_INTERVAL = 10, OBSTACLE_SPAWN_INTERVAL = 0, TURN_LIMIT = 20; 
+        let GRID_W = 6, GRID_H = 6, TARGET_SPECIAL_CLEARS = 3, SPAWN_COUNT = 2;
+        let SPECIAL_SPAWN_INTERVAL = 10, OBSTACLE_SPAWN_INTERVAL = 0, TURN_LIMIT = 20;
+        let INITIAL_FILL_RATIO = 0.4; // fraction of valid tiles filled at stage start
         let validGrid = [];
         let boardOffX = 0, boardOffZ = 0; // centroid-based board offset (world coords)
         
@@ -1296,7 +1297,7 @@
                 const map = [];
                 for (let x = 0; x < sd.w; x++) { map[x] = []; for (let z = 0; z < sd.h; z++) map[x][z] = false; }
                 sd.map.forEach((row, z) => { for (let x = 0; x < row.length; x++) if (row[x] === '1') map[x][z] = true; });
-                return { w: sd.w, h: sd.h, map, colors: sd.colors, spawnAmount: sd.spawn, spawnRate: sd.spawnRate, targetCores: sd.cores, obstacleRate: sd.obstacles, turnLimit: sd.turns };
+                return { w: sd.w, h: sd.h, map, colors: sd.colors, spawnAmount: sd.spawn, spawnRate: sd.spawnRate, targetCores: sd.cores, obstacleRate: sd.obstacles, turnLimit: sd.turns, initialFill: sd.initialFill !== undefined ? sd.initialFill : 0.4 };
             }
             const shape = getBoardShape(stage);
             let w = shape.w, h = shape.h;
@@ -1570,9 +1571,9 @@
                 setCinematicGlass(false);
             }
 
-            const ic=Math.floor(GRID_W*GRID_H*0.4);
             let ps=[]; for(let x=0;x<GRID_W;x++)for(let z=0;z<GRID_H;z++) { if(validGrid[x][z]) ps.push({x,z}); }
             ps.sort(()=>Math.random()-0.5);
+            const ic=Math.floor(ps.length * INITIAL_FILL_RATIO);
             let sp=[]; for(let i=0;i<Math.min(ic, ps.length);i++) { sp.push({pos:ps[i], ci:Math.floor(Math.random()*activeColors.length), is:false, isObs:false}); }
             sp.forEach(s=>createLightBeam(new THREE.Vector3(s.pos.x*SPACING-boardOffX, 0, s.pos.z*SPACING-boardOffZ), new THREE.Color(activeColors[s.ci])));
             if(gameActive) playSpawnAmbientSE(Math.min(sp.length, 5));
@@ -2178,7 +2179,6 @@
             document.getElementById('config-menu').style.display='none';
 
             const saved = await loadProgress();
-            if (editorTestMode) { editorTestMode = false; isCampaignMode = true; currentStage = 1; launchGame(); return; }
             const diff = calculateStageDifficulty(saved); const visuals = generateVisuals(saved); applyVisuals(visuals);
             GRID_W = diff.w; GRID_H = diff.h; validGrid = diff.map || []; if(!validGrid.length) for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; }
             activeColors = visuals.palette.slice(0, diff.colors);
@@ -2222,7 +2222,8 @@
             GRID_W = diff.w; GRID_H = diff.h; validGrid = diff.map || [];
             if(!validGrid.length) for(let x=0;x<GRID_W;x++){ validGrid[x]=[]; for(let z=0;z<GRID_H;z++) validGrid[x][z]=true; }
             activeColors = visuals.palette.slice(0, diff.colors); SPAWN_COUNT = diff.spawnAmount;
-            SPECIAL_SPAWN_INTERVAL = diff.spawnRate; TARGET_SPECIAL_CLEARS = diff.targetCores; OBSTACLE_SPAWN_INTERVAL = diff.obstacleRate; 
+            SPECIAL_SPAWN_INTERVAL = diff.spawnRate; TARGET_SPECIAL_CLEARS = diff.targetCores; OBSTACLE_SPAWN_INTERVAL = diff.obstacleRate;
+            INITIAL_FILL_RATIO = (diff.initialFill !== undefined) ? diff.initialFill : 0.4;
             remainingTurns = diff.turnLimit; totalBlocksSpawned = 0; clearedSpecialCount=0; totalBlocks=0;
             startBGM(); initGameBoard();
         }
@@ -2949,10 +2950,19 @@
                     await loadStageData();
                     await loadProgress();
                     document.getElementById('loading-screen').style.display='none';
+                    if (__cgSdk) __cgSdk.game.loadingStop();
+                    // Editor Test Play: skip title/stage select, go straight to game
+                    if (editorTestMode) {
+                        editorTestMode = false;
+                        isCampaignMode = true; currentStage = 1;
+                        document.getElementById('game-ui').style.display='flex';
+                        gameActive = true; initAudio(); startBGM();
+                        startStage(1);
+                        return;
+                    }
                     document.getElementById('ss-overlay').style.display='block';
                     stageSelect.syncUnlockedStage(maxUnlockedStage, totalCores);
                     stageSelect.showTitle();
-                    if (__cgSdk) __cgSdk.game.loadingStop();
                 }, 1000);
             } 
             catch(e) { console.error(e); alert("Init Error: "+e.message); }
