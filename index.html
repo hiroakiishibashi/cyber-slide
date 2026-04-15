@@ -176,6 +176,7 @@
             display: flex; align-items: center; justify-content: space-between;
             padding: 0 16px; pointer-events: auto;
             gap: 10px;
+            margin-top: 40px;
         }
         .hud-group { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 50px; }
         .hud-group.center { align-items: center; }
@@ -652,7 +653,7 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v25</div>
+            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.3</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -701,7 +702,9 @@
     <div id="loading-screen" class="overlay"><div class="loader"></div><div style="font-size: 10px; letter-spacing: 2px;">SYSTEM BOOTING...</div></div>
     
     <div id="game-ui">
-        <div id="ui-top-bar" class="glass-panel">
+        <button id="btn-back-title" class="btn-base btn-alert" style="position:absolute; top:14px; left:16px; width:auto; padding:6px 18px; font-size:10px; letter-spacing:2px; pointer-events:auto; z-index:10;">EXIT</button>
+        <button id="game-sound-btn" class="ss-bgm-toggle" style="position:absolute; top:14px; right:16px; pointer-events:auto; z-index:10;">OFF</button>
+        <div id="ui-top-bar">
             <div class="hud-group">
                 <span class="hud-label">STAGE</span>
                 <span id="stage-val" class="hud-val">1</span>
@@ -720,9 +723,6 @@
             <div class="hud-group center">
                 <span class="hud-label">TURN</span>
                 <span id="turn-val" class="hud-val">20</span>
-            </div>
-            <div class="hud-group right" style="flex-direction:row; gap:8px; align-items:center;">
-                <button id="btn-back-title" class="btn-mini">EXIT</button>
             </div>
         </div>
 
@@ -748,6 +748,7 @@
             <div id="message-sub" class="msg-sub">Next Sector Unlocked</div>
             <div id="core-breakdown" style="display:none;"></div>
             <div style="height: 20px;"></div>
+            <button id="btn-msg-continue" class="btn-base" style="width: auto; padding: 12px 50px; display:none;">CONTINUE</button>
             <button id="btn-title" class="btn-base" style="width: auto; padding: 12px 50px; display:none;">RETURN</button>
         </div>
     </div>
@@ -797,7 +798,7 @@
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
             <button id="ss-btn-title-start">START</button>
             <div class="ss-title-footer">
-                <span class="ss-title-version">Production v25</span>
+                <span class="ss-title-version">Production v27.3</span>
                 <button class="ss-title-settings-btn" id="ss-btn-title-settings">SETTINGS</button>
             </div>
         </div>
@@ -2085,10 +2086,13 @@
                 }, 1000);
             }
 
-            // Show interstitial during the natural pause (stage clear screen is visible)
-            showInterstitialAd();
+            // Show CONTINUE button — user explicitly proceeds; eliminates freeze risk from ad/save timing
+            const _btnCont = document.getElementById('btn-msg-continue');
+            _btnCont.style.display = '';
+            await new Promise(resolve => { _btnCont.onclick = () => { _btnCont.style.display='none'; resolve(); }; });
 
-            await new Promise(r=>setTimeout(r,4500));
+            // Trigger interstitial ad then transition
+            showInterstitialAd();
             msg.style.opacity=0;
             await new Promise(r=>setTimeout(r,1000));
             msg.style.display='none';
@@ -2823,6 +2827,7 @@
                     });
                     // Single shared BGM/SE toggle button
                     document.getElementById('ss-btn-bgm').addEventListener('click',()=>toggleSound());
+                    document.getElementById('game-sound-btn').addEventListener('click',()=>toggleSound());
                     // Settings button in title layer
                     const _settingsBtn=document.getElementById('ss-btn-title-settings');
                     if(_settingsBtn) _settingsBtn.addEventListener('click',()=>{

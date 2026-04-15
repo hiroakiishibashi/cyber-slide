@@ -4,6 +4,65 @@
 
 ---
 
+## ✅ v27.3 — 2026-04-09
+
+**Status: Submitted (CrazyGames ✅ / Playgama ✅)**
+
+### New Features
+
+**CORE Economy & Stage Clear Rewards**
+- Unlock dialog skipped when CORE balance is sufficient — unlocks instantly
+- Remaining CORE blocks on the board are collected on stage clear (counted as earned CORE)
+- First-clear bonus: +1 CORE per stage (tracked via `cs_stage_cleared_N` key, independent of score)
+- Score bonus: +1 CORE per 1,000 points earned
+- Stage clear overlay shows animated CORE breakdown: EARNED CORE / SCORE BONUS / FIRST CLEAR / TOTAL CORE (count-up animation)
+
+**First-Run Auto-Start**
+- First-time players are automatically taken from title → Stage 1 without spending CORE
+- Camera zooms to Stage 1, 1.5s pause, then auto-launches — removes new-user friction
+- Tracked via `cs_first_run_v1` localStorage key; never repeats
+
+**BGM/SE Toggle**
+- Single shared toggle button (top-right, always visible on title and stage select)
+- Default: ON (button label shows "OFF" to indicate click action)
+- Controls both BGM and SE simultaneously; synced between game and stage select audio systems
+
+**Board Centering & Tilt Pivot**
+- Board position computed from tile centroid (not bounding box) — asymmetric shapes (L, T, cross, etc.) are truly centered on screen
+- Tilt rotation pivots around the centroid, making all shapes feel balanced
+- Camera zoom recalculated from actual tile extents for tight framing
+
+**Stage Design Overhaul**
+- 24 unique board shapes (up from 18), always rendered on full 8×8 canvas
+- Tile budget (maxTiles) controls complexity per stage — early stages start small, shapes emerge fully by mid-game
+- Consecutive stages always use a different shape type
+- `initialFill` parameter per stage: fraction of valid tiles pre-filled at stage start (0.30–0.45); prevents board-full on spawn at stage start or restart
+
+**Stage Editor — Test Play**
+- "Test Play" button now launches directly into the game, skipping title screen and stage select entirely
+- `ss-overlay` is fully hidden (`display:none; pointer-events:none`) during editor test sessions to prevent invisible click interception
+
+### Stage Data (stages.json)
+- Stages 1–25: hand-crafted maps (shapes designed and edited via Stage Editor)
+- Stages 26–300: 55-pattern MAP_LIBRARY cycled with difficulty scaling
+- All 300 stages verified: zero isolated cells (cells with 0 neighbors where blocks get permanently stuck)
+- `initialFill` field added to all stage records
+- `cs_stage_cleared_N` key used for first-clear detection (replaces score-based `_pb === 0` check)
+
+### Banner Text Fixes
+- "TIME UP!" → "TURN BONUS" (combo turn reward)
+- "TIME EXTEND" → "TURN EXTEND" (obstacle break reward)
+- "TIME BONUS" → "SCORE BONUS" (stage clear turn-to-score conversion)
+- Fixed `showStageBanner(0, ...)` calls that incorrectly showed "STAGE 0"
+
+### Stage Generator (generate_stages.js v6)
+- Stages 1–25 embedded as hand-crafted data; preserved across regeneration
+- Stages 26–300 use MAP_LIBRARY (55 patterns: plus/ring, brackets, spirals, zigzags, S-curves, nested-Ls, hourglass, pinstripe-cross, etc.)
+- `initialFill` included in all generated stage records
+- Clearability guaranteed: `turnLimit = ceil(targetCores × spawnRate / spawnAmount × 2.5)`
+
+---
+
 ## 🚧 v25 — 2026-04-05
 
 **Status: 開発完了・申請準備中**
