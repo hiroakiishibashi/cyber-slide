@@ -702,8 +702,8 @@
     <div id="loading-screen" class="overlay"><div class="loader"></div><div style="font-size: 10px; letter-spacing: 2px;">SYSTEM BOOTING...</div></div>
     
     <div id="game-ui">
-        <button id="btn-back-title" class="btn-base btn-alert" style="position:absolute; top:14px; left:16px; width:auto; padding:6px 18px; font-size:10px; letter-spacing:2px; pointer-events:auto; z-index:10;">EXIT</button>
-        <button id="game-sound-btn" class="ss-bgm-toggle" style="position:absolute; top:14px; right:16px; pointer-events:auto; z-index:10;">OFF</button>
+        <button id="btn-back-title" class="btn-base" style="position:absolute; top:14px; left:16px; width:auto; padding:6px 18px; font-size:10px; letter-spacing:2px; pointer-events:auto; z-index:10;">EXIT</button>
+        <button id="game-sound-btn" class="ss-bgm-toggle" style="position:absolute; top:14px; right:16px; pointer-events:auto; z-index:10;">SOUND ON</button>
         <div id="ui-top-bar">
             <div class="hud-group">
                 <span class="hud-label">STAGE</span>
@@ -729,8 +729,8 @@
         <div id="combo-display"></div>
         <div id="stage-banner"><h2>STAGE 1</h2><p>START</p></div>
 
-        <div id="ui-bottom-bar" class="glass-panel">
-            <button id="btn-reset" class="btn-reset-icon" title="Reboot">↻</button>
+        <div id="ui-bottom-bar">
+            <button id="btn-reset" class="ss-bgm-toggle" style="pointer-events:auto;">REBOOT</button>
             <div class="hud-group right">
                  <span class="hud-label" style="text-align:right;">NEXT WAVE</span>
                  <div id="next-queue-container">
@@ -792,7 +792,7 @@
         <div id="ss-fade-overlay"></div>
         <div id="ss-canvas-container"></div>
         <!-- Single shared BGM/SE toggle — always visible top-right -->
-        <button id="ss-btn-bgm" class="ss-bgm-toggle">OFF</button>
+        <button id="ss-btn-bgm" class="ss-bgm-toggle">SOUND ON</button>
         <div id="ss-title-layer">
             <div class="ss-title-logo">CYBER SLIDE</div>
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
@@ -1188,8 +1188,8 @@
                 window.speechSynthesis.cancel();
             }
             if (window._ss_setMuted) window._ss_setMuted(isSoundMuted);
-            // Button label shows the action: "OFF" = click to turn off (currently ON), "ON" = click to turn on (currently OFF)
-            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'ON':'OFF');
+            // Button label shows current state: "SOUND ON" = sound is on, "SOUND OFF" = sound is off
+            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'SOUND OFF':'SOUND ON');
         }
 
         function clearAllTimeouts() { timeouts.forEach(t => clearTimeout(t)); timeouts = []; if(animationFrameId) cancelAnimationFrame(animationFrameId); }
