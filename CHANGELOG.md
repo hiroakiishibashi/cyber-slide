@@ -4,6 +4,37 @@
 
 ---
 
+## ✅ v27.8 — 2026-04-15
+
+**Status: Submitted (Playgama ✅)**
+
+### Changes (v27.4 → v27.8)
+
+**HUD Readability**
+- Added `text-shadow` to `.hud-label` / `.hud-val` / `.ss-bgm-toggle` — white text now readable against 3D background without glass-panel backdrop
+
+**Audio — Mobile Fix & BGM Removal**
+- `startBGM()` made async with `audioCtx.resume()` — fixed mobile AudioContext 'suspended' bug
+- `toggleSound()` now restarts BGM on unmute if `bgmInterval` is null
+- `stopBGM()` now nulls `bgmInterval` so mute/unmute state is tracked correctly
+- **v27.8: All BGM removed** (`startBGM` / `stopBGM` stubbed to no-ops; all instrument functions deleted)
+- Stage-select ambient drones, bell, delay chain, and sequencer also removed
+- SE functions (block pop, core collect, jingle, etc.) and `speak()` voice are retained
+
+**UI Fixes**
+- REBOOT button: switched from `ss-bgm-toggle` → `btn-base` (fixes label-bleed bug where SOUND toggle changed REBOOT text)
+- SOUND toggle label inverted: shows action ("SOUND OFF" = currently on, "SOUND ON" = currently muted)
+- REBOOT button style: dark background + subtle border/text for unobtrusive appearance
+- NEXT WAVE preview reduced from 10 → 5 future blocks
+
+**Mobile Browser Chrome**
+- `viewport-fit=cover` added to viewport meta
+- `theme-color: #060003` (dark warm red) — status bar matches game tone instead of blue-purple
+- `apple-mobile-web-app-capable` + `black-translucent` status bar style for iOS Safari
+- `body` background changed from `#050510` → `#060003`
+
+---
+
 ## ✅ v27.3 — 2026-04-09
 
 **Status: Submitted (CrazyGames ✅ / Playgama ✅)**
