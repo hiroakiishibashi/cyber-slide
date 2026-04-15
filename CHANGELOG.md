@@ -4,7 +4,7 @@
 
 ---
 
-## ✅ v27.9b — 2026-04-15
+## ✅ v27.9d — 2026-04-15
 
 **Status: Submitted (Playgama ✅)**
 
@@ -27,9 +27,14 @@
 - itch.io / CrazyGames: clears all localStorage keys (save, unlocked, cores, per-stage cleared/best, first-run flags)
 - Playgama: also resets bridge.storage server-side (SAVE_KEY→'1', UNLOCKED_V2_KEY→'[1]', CORES_KEY→'0')
 - Resets in-memory state (maxUnlockedStage=1, unlockedStagesSet={1}, totalCores=0)
+- After reset, stageSelect.syncUnlockedStage(1,0) called immediately to sync CORE display
 
 **BACK button fix**
 - Config menu BACK now returns to stage select title screen (3D starfield) instead of plain main-menu
+
+**Debug menu cleanup**
+- showConfigMenu() hides h1 / subtitle / version text — only debug buttons visible
+- hideConfigMenu() restores decorations on BACK / showStartScreen()
 
 **Version**
 - Display updated: v27.3 → v27.9
