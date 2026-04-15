@@ -143,6 +143,13 @@
         .menu-container { display: flex; flex-direction: column; gap: 16px; width: 100%; }
         .config-area { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left; width: 100%; }
         .config-item label { display: block; margin-bottom: 4px; font-weight: 700; color: var(--col-main); opacity: 0.7; font-size: var(--font-s); letter-spacing: 1px; text-transform: uppercase; }
+        /* BGM TEST */
+        #bgm-test-section { width: 100%; }
+        .bgm-test-label { font-size: var(--font-s); color: var(--col-main); opacity: 0.6; letter-spacing: 2px; margin-bottom: 6px; font-weight: 700; text-align: left; }
+        .bgm-test-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; width: 100%; }
+        .bgm-test-row .btn-base { padding: 9px 4px; font-size: 9px; letter-spacing: 0.5px; }
+        .bgm-test-row .btn-base.bgm-active { background: rgba(0,255,255,0.15); border-color: #0ff; color: #0ff; box-shadow: 0 0 10px rgba(0,255,255,0.3); }
+        #bgm-test-status { font-size: 9px; opacity: 0.45; text-align: center; letter-spacing: 2px; margin-top: 4px; font-family: 'Orbitron',sans-serif; }
         select, input[type="number"] { 
             width: 100%; padding: 10px; font-size: 14px; 
             border: 1px solid var(--glass-border); 
@@ -654,10 +661,20 @@
                         <option value="5">HARD [5 COLORS]</option>
                     </select>
                 </div>
+                <div id="bgm-test-section">
+                    <div class="bgm-test-label">BGM TEST</div>
+                    <div class="bgm-test-row">
+                        <button id="btn-bgm-ambient" class="btn-base">AMBIENT</button>
+                        <button id="btn-bgm-edm" class="btn-base">EDM</button>
+                        <button id="btn-bgm-retro" class="btn-base">RETRO BIT</button>
+                        <button id="btn-bgm-stop" class="btn-base btn-alert">■ STOP</button>
+                    </div>
+                    <div id="bgm-test-status">— STOPPED —</div>
+                </div>
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.3</div>
+            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.9</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -802,7 +819,7 @@
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
             <button id="ss-btn-title-start">START</button>
             <div class="ss-title-footer">
-                <span class="ss-title-version">Production v27.3</span>
+                <span class="ss-title-version">Production v27.9</span>
                 <button class="ss-title-settings-btn" id="ss-btn-title-settings">SETTINGS</button>
             </div>
         </div>
@@ -1373,6 +1390,222 @@
         // BGM removed — stubs keep callers safe
         async function startBGM() {}
         function stopBGM() {}
+
+        // ===== BGM TEST ENGINE =====
+        let _bgmTestTimer = null;
+        let _bgmTestBarNum = 0;
+        let _bgmTestActive = null; // 'ambient' | 'edm' | 'retro' | null
+
+        function stopBgmTest() {
+            if (_bgmTestTimer) { clearTimeout(_bgmTestTimer); _bgmTestTimer = null; }
+            _bgmTestActive = null; _bgmTestBarNum = 0;
+            document.querySelectorAll('#bgm-test-section .btn-base').forEach(b => b.classList.remove('bgm-active'));
+            const st = document.getElementById('bgm-test-status');
+            if (st) st.textContent = '— STOPPED —';
+        }
+
+        function playBgmTest(track) {
+            stopBgmTest();
+            ensureAudioContext();
+            if (!audioCtx) return;
+            _bgmTestActive = track;
+            _bgmTestBarNum = 0;
+            const names = { ambient:'AMBIENT', edm:'EDM', retro:'RETRO BIT' };
+            const st = document.getElementById('bgm-test-status');
+            if (st) st.textContent = '▶ ' + (names[track] || track);
+            const btn = document.getElementById('btn-bgm-' + track);
+            if (btn) btn.classList.add('bgm-active');
+            _scheduleBgmBar();
+        }
+
+        function _scheduleBgmBar() {
+            if (!_bgmTestActive || !audioCtx) return;
+            const t = audioCtx.currentTime + 0.02;
+            let barDur;
+            if (_bgmTestActive === 'ambient') { _playAmbientBar(t); barDur = 8.0; }
+            else if (_bgmTestActive === 'edm') { _playEdmBar(t); barDur = (60 / 128) * 4; }
+            else if (_bgmTestActive === 'retro') { _playRetroBar(t); barDur = (60 / 140) * 4; }
+            _bgmTestBarNum++;
+            _bgmTestTimer = setTimeout(_scheduleBgmBar, (barDur - 0.06) * 1000);
+        }
+
+        // — Track 1: AMBIENT —
+        function _playAmbientBar(t) {
+            if (!audioCtx || !masterGain) return;
+            const dur = 8.0, vol = 0.13;
+            // Drone: A2 (110Hz) layered x3 with slight detune
+            [110, 110.4, 109.6].forEach(f => {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain(), fl = audioCtx.createBiquadFilter();
+                o.type = 'sine'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = 500;
+                g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * 0.6, t + 2.5);
+                g.gain.setValueAtTime(vol * 0.6, t + dur - 2); g.gain.linearRampToValueAtTime(0, t + dur);
+                o.connect(fl); fl.connect(g); g.connect(masterGain); o.start(t); o.stop(t + dur);
+            });
+            // Pad chord: Am9  — A3, E3, C4, G4, B4
+            const padNotes = [220, 164.81, 261.63, 392.0, 493.88];
+            padNotes.forEach((f, i) => {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain(), fl = audioCtx.createBiquadFilter();
+                o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 10;
+                fl.type = 'lowpass'; fl.frequency.value = 900; fl.Q.value = 1.5;
+                g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * 0.22, t + 3.5);
+                g.gain.setValueAtTime(vol * 0.22, t + dur - 2.5); g.gain.linearRampToValueAtTime(0, t + dur);
+                o.connect(fl); fl.connect(g); g.connect(masterGain); o.start(t); o.stop(t + dur);
+            });
+            // LFO-like filter sweep on a mid pad
+            const oMid = audioCtx.createOscillator(), flMid = audioCtx.createBiquadFilter(), gMid = audioCtx.createGain();
+            oMid.type = 'sawtooth'; oMid.frequency.value = 329.63; // E4
+            flMid.type = 'lowpass'; flMid.frequency.setValueAtTime(400, t); flMid.frequency.linearRampToValueAtTime(1600, t + dur * 0.5);
+            flMid.frequency.linearRampToValueAtTime(400, t + dur); flMid.Q.value = 4;
+            gMid.gain.setValueAtTime(0, t); gMid.gain.linearRampToValueAtTime(vol * 0.18, t + 2);
+            gMid.gain.setValueAtTime(vol * 0.18, t + dur - 1.5); gMid.gain.linearRampToValueAtTime(0, t + dur);
+            oMid.connect(flMid); flMid.connect(gMid); gMid.connect(masterGain); oMid.start(t); oMid.stop(t + dur);
+            // Bell tones: random positions on A-minor scale
+            const bells = [440, 523.25, 329.63, 220, 392.0, 659.25];
+            const numB = 3 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < numB; i++) {
+                const st2 = t + 0.5 + Math.random() * (dur - 2.0);
+                const f = bells[Math.floor(Math.random() * bells.length)];
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'sine'; o.frequency.value = f;
+                g.gain.setValueAtTime(0, st2); g.gain.linearRampToValueAtTime(vol * 0.28, st2 + 0.025);
+                g.gain.exponentialRampToValueAtTime(0.001, st2 + 3.0);
+                o.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + 3.0);
+            }
+        }
+
+        // — Track 2: EDM (128 BPM) —
+        function _playEdmBar(t) {
+            if (!audioCtx || !masterGain) return;
+            const bpm = 128, beat = 60 / bpm, bar = beat * 4, vol = 0.18;
+            // Kick: 4-on-the-floor
+            for (let i = 0; i < 4; i++) {
+                const st2 = t + i * beat;
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'sine'; o.frequency.setValueAtTime(175, st2); o.frequency.exponentialRampToValueAtTime(38, st2 + 0.09);
+                g.gain.setValueAtTime(vol * 1.4, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.28);
+                o.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + 0.28);
+            }
+            // Snare: beats 2, 4
+            [1, 3].forEach(b => {
+                const st2 = t + b * beat;
+                const sr = audioCtx.sampleRate, sLen = Math.floor(sr * 0.14);
+                const buf = audioCtx.createBuffer(1, sLen, sr), da = buf.getChannelData(0);
+                for (let j = 0; j < sLen; j++) da[j] = Math.random() * 2 - 1;
+                const src = audioCtx.createBufferSource(); src.buffer = buf;
+                const fl = audioCtx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 2200; fl.Q.value = 0.6;
+                const g = audioCtx.createGain(); g.gain.setValueAtTime(vol * 0.9, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.14);
+                src.connect(fl); fl.connect(g); g.connect(masterGain); src.start(st2);
+            });
+            // Open hi-hat: 8th notes
+            for (let i = 0; i < 8; i++) {
+                const st2 = t + i * beat * 0.5;
+                const sr = audioCtx.sampleRate, sLen = Math.floor(sr * 0.07);
+                const buf = audioCtx.createBuffer(1, sLen, sr), da = buf.getChannelData(0);
+                for (let j = 0; j < sLen; j++) da[j] = Math.random() * 2 - 1;
+                const src = audioCtx.createBufferSource(); src.buffer = buf;
+                const fl = audioCtx.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = 9000;
+                const g = audioCtx.createGain(); g.gain.setValueAtTime(vol * (i % 2 === 0 ? 0.28 : 0.16), st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.07);
+                src.connect(fl); fl.connect(g); g.connect(masterGain); src.start(st2);
+            }
+            // Synth bass (sawtooth + filter): A1→A1→E2→G2 per beat
+            const bassFreqs = [55, 55, 82.41, 98.0];
+            bassFreqs.forEach((f, i) => {
+                const st2 = t + i * beat;
+                const o = audioCtx.createOscillator(), fl = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+                o.type = 'sawtooth'; o.frequency.value = f;
+                fl.type = 'lowpass'; fl.frequency.setValueAtTime(900, st2); fl.frequency.exponentialRampToValueAtTime(180, st2 + beat * 0.85);
+                g.gain.setValueAtTime(vol * 0.65, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + beat * 0.85);
+                o.connect(fl); fl.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + beat);
+            });
+            // Lead arp: 8th notes up & down Am pentatonic
+            const arpBar = _bgmTestBarNum % 2;
+            const arpPat = arpBar === 0
+                ? [440, 523.25, 659.25, 783.99, 659.25, 523.25, 440, 392.0]
+                : [440, 523.25, 440, 659.25, 523.25, 440, 523.25, 659.25];
+            arpPat.forEach((f, i) => {
+                const st2 = t + i * beat * 0.5;
+                const o = audioCtx.createOscillator(), fl = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+                o.type = 'square'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = 3200;
+                g.gain.setValueAtTime(0, st2); g.gain.linearRampToValueAtTime(vol * 0.3, st2 + 0.008);
+                g.gain.exponentialRampToValueAtTime(0.001, st2 + beat * 0.42);
+                o.connect(fl); fl.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + beat * 0.45);
+            });
+            // Pad chord: held for bar
+            const padNotes2 = [220, 261.63, 329.63, 392.0];
+            padNotes2.forEach(f => {
+                const o = audioCtx.createOscillator(), fl = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+                o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (Math.random()-0.5)*6;
+                fl.type = 'lowpass'; fl.frequency.value = 1400; fl.Q.value = 1;
+                g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * 0.12, t + 0.15);
+                g.gain.setValueAtTime(vol * 0.12, t + bar - 0.1); g.gain.linearRampToValueAtTime(0, t + bar);
+                o.connect(fl); fl.connect(g); g.connect(masterGain); o.start(t); o.stop(t + bar);
+            });
+        }
+
+        // — Track 3: RETRO BIT (140 BPM) —
+        function _playRetroBar(t) {
+            if (!audioCtx || !masterGain) return;
+            const bpm = 140, beat = 60 / bpm, bar = beat * 4, vol = 0.18;
+            // Melody: 4 patterns cycling every bar
+            const melPatterns = [
+                [523.25, 659.25, 783.99, 880.0],   // C5 E5 G5 A5
+                [880.0,  783.99, 659.25, 523.25],   // A5 G5 E5 C5
+                [523.25, 659.25, 783.99, 1046.5],   // C5 E5 G5 C6
+                [783.99, 659.25, 587.33, 523.25],   // G5 E5 D5 C5
+            ];
+            melPatterns[_bgmTestBarNum % 4].forEach((f, i) => {
+                const st2 = t + i * beat;
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'square'; o.frequency.value = f;
+                g.gain.setValueAtTime(vol * 0.55, st2);
+                g.gain.setValueAtTime(vol * 0.55, st2 + beat * 0.72);
+                g.gain.linearRampToValueAtTime(0, st2 + beat * 0.78);
+                o.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + beat);
+            });
+            // Bass: pulse C2/G2 pattern
+            const bassNotes2 = [[0, 65.41],[1, 98.0],[2, 65.41],[3, 73.42]];
+            bassNotes2.forEach(([b, f]) => {
+                const st2 = t + b * beat;
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'square'; o.frequency.value = f;
+                g.gain.setValueAtTime(vol * 0.45, st2);
+                g.gain.setValueAtTime(vol * 0.45, st2 + beat * 0.55);
+                g.gain.linearRampToValueAtTime(0, st2 + beat * 0.62);
+                o.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + beat);
+            });
+            // Kick: beats 1, 3
+            [0, 2].forEach(b => {
+                const st2 = t + b * beat;
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = 'triangle'; o.frequency.setValueAtTime(220, st2); o.frequency.exponentialRampToValueAtTime(40, st2 + 0.09);
+                g.gain.setValueAtTime(vol * 1.1, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.12);
+                o.connect(g); g.connect(masterGain); o.start(st2); o.stop(st2 + 0.14);
+            });
+            // Snare noise: beats 2, 4
+            [1, 3].forEach(b => {
+                const st2 = t + b * beat;
+                const sr = audioCtx.sampleRate, sLen = Math.floor(sr * 0.07);
+                const buf = audioCtx.createBuffer(1, sLen, sr), da = buf.getChannelData(0);
+                for (let j = 0; j < sLen; j++) da[j] = Math.random() * 2 - 1;
+                const src = audioCtx.createBufferSource(); src.buffer = buf;
+                const fl = audioCtx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 3500; fl.Q.value = 0.8;
+                const g = audioCtx.createGain(); g.gain.setValueAtTime(vol * 0.6, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.07);
+                src.connect(fl); fl.connect(g); g.connect(masterGain); src.start(st2);
+            });
+            // Hi-hat noise: 16th notes
+            for (let i = 0; i < 8; i++) {
+                const st2 = t + i * beat * 0.5;
+                const sr = audioCtx.sampleRate, sLen = Math.floor(sr * 0.03);
+                const buf = audioCtx.createBuffer(1, sLen, sr), da = buf.getChannelData(0);
+                for (let j = 0; j < sLen; j++) da[j] = Math.random() * 2 - 1;
+                const src = audioCtx.createBufferSource(); src.buffer = buf;
+                const fl = audioCtx.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = 10000;
+                const g = audioCtx.createGain(); g.gain.setValueAtTime(vol * 0.18, st2); g.gain.exponentialRampToValueAtTime(0.001, st2 + 0.03);
+                src.connect(fl); fl.connect(g); g.connect(masterGain); src.start(st2);
+            }
+        }
+        // ===== END BGM TEST ENGINE =====
+
         // --- SOUND EFFECTS (all use masterGain, safe without BGM running) ---
         function playBlockPop(t) { if(!audioCtx||audioCtx.state!=='running') return; const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(550,t); o.frequency.exponentialRampToValueAtTime(220,t+0.09); g.gain.setValueAtTime(0.32,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.1); o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.1); }
         function playObstacleBreak(t) { if(!audioCtx||audioCtx.state!=='running') return; const sr=audioCtx.sampleRate,dur=0.38,bs=Math.floor(sr*dur),buf=audioCtx.createBuffer(1,bs,sr),da=buf.getChannelData(0);for(let i=0;i<bs;i++)da[i]=Math.random()*2-1;const s=audioCtx.createBufferSource();s.buffer=buf;const fl=audioCtx.createBiquadFilter();fl.type='lowpass';fl.frequency.value=380;const g=audioCtx.createGain();g.gain.setValueAtTime(0.55,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);s.connect(fl);fl.connect(g);g.connect(masterGain);s.start(t); }
@@ -2257,9 +2490,13 @@
             document.getElementById('dev-settings-btn').addEventListener('click', showConfigMenu);
             document.getElementById('btn-select-stage').addEventListener('click', openStageSelect);
 
-            document.getElementById('btn-back-menu').addEventListener('click', () => { document.getElementById('config-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
+            document.getElementById('btn-back-menu').addEventListener('click', () => { stopBgmTest(); document.getElementById('config-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
 
-            document.getElementById('btn-start-custom').addEventListener('click', startCustomGame);
+            document.getElementById('btn-bgm-ambient').addEventListener('click', () => playBgmTest('ambient'));
+            document.getElementById('btn-bgm-edm').addEventListener('click', () => playBgmTest('edm'));
+            document.getElementById('btn-bgm-retro').addEventListener('click', () => playBgmTest('retro'));
+            document.getElementById('btn-bgm-stop').addEventListener('click', stopBgmTest);
+            document.getElementById('btn-start-custom').addEventListener('click', () => { stopBgmTest(); startCustomGame(); });
             document.getElementById('btn-reset').addEventListener('click', triggerBoardCollapse);
             document.getElementById('btn-title').addEventListener('click', showStartScreen);
             document.getElementById('btn-back-title').addEventListener('click', showPauseMenu);
@@ -2817,12 +3054,13 @@
                     // Single shared BGM/SE toggle button
                     document.getElementById('ss-btn-bgm').addEventListener('click',()=>toggleSound());
                     document.getElementById('game-sound-btn').addEventListener('click',()=>toggleSound());
-                    // Settings button in title layer
+                    // Settings button in title layer — 1 click → config/debug menu
                     const _settingsBtn=document.getElementById('ss-btn-title-settings');
                     if(_settingsBtn) _settingsBtn.addEventListener('click',()=>{
                         ssActive=false; ssAnimating=false;
                         document.getElementById('ss-overlay').style.display='none';
-                        showStartScreen();
+                        showStartScreen(); // sets up title DOM (sync part runs before await)
+                        showConfigMenu(); // immediately open debug/config menu
                     });
                     // Unlock dialog buttons
                     document.getElementById('ss-btn-unlock-yes').addEventListener('click',()=>_doUnlock());
