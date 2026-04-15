@@ -4,6 +4,38 @@
 
 ---
 
+## ✅ v27.9b — 2026-04-15
+
+**Status: Submitted (Playgama ✅)**
+
+### Changes (v27.8 → v27.9b)
+
+**BGM Test Menu**
+- SETTINGS button (ss-btn-title-settings) now opens debug/config menu in 1 click
+- BGM TEST section added to config menu: AMBIENT / EDM / RETRO BIT / ■ STOP buttons
+- Active track highlighted in cyan with status label
+
+**In-Game BGM**
+- Title screen & stage select: AMBIENT BGM plays automatically
+- Gameplay: EDM BGM plays automatically (startBGM → playBgmTest('edm'))
+- All transitions properly stop/restart BGM via stopBGM() → stopBgmTest()
+- SOUND OFF toggle mutes BGM via masterGain
+
+**Debug: Reset Save Data**
+- RESET SAVE DATA button added to config/SETTINGS menu
+- 2-click confirm (⚠ TAP AGAIN TO CONFIRM → executes after 2nd tap, auto-cancels after 3s)
+- itch.io / CrazyGames: clears all localStorage keys (save, unlocked, cores, per-stage cleared/best, first-run flags)
+- Playgama: also resets bridge.storage server-side (SAVE_KEY→'1', UNLOCKED_V2_KEY→'[1]', CORES_KEY→'0')
+- Resets in-memory state (maxUnlockedStage=1, unlockedStagesSet={1}, totalCores=0)
+
+**BACK button fix**
+- Config menu BACK now returns to stage select title screen (3D starfield) instead of plain main-menu
+
+**Version**
+- Display updated: v27.3 → v27.9
+
+---
+
 ## ✅ v27.8 — 2026-04-15
 
 **Status: Submitted (Playgama ✅)**

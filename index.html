@@ -150,6 +150,9 @@
         .bgm-test-row .btn-base { padding: 9px 4px; font-size: 9px; letter-spacing: 0.5px; }
         .bgm-test-row .btn-base.bgm-active { background: rgba(0,255,255,0.15); border-color: #0ff; color: #0ff; box-shadow: 0 0 10px rgba(0,255,255,0.3); }
         #bgm-test-status { font-size: 9px; opacity: 0.45; text-align: center; letter-spacing: 2px; margin-top: 4px; font-family: 'Orbitron',sans-serif; }
+        /* RESET SAVE */
+        #btn-reset-save.reset-confirm { background: rgba(255,165,0,0.15); border-color: orange; color: orange; animation: pulse-warn 0.6s ease infinite alternate; }
+        @keyframes pulse-warn { from { box-shadow: none; } to { box-shadow: 0 0 14px rgba(255,165,0,0.5); } }
         select, input[type="number"] { 
             width: 100%; padding: 10px; font-size: 14px; 
             border: 1px solid var(--glass-border); 
@@ -671,6 +674,7 @@
                     </div>
                     <div id="bgm-test-status">— STOPPED —</div>
                 </div>
+                <button id="btn-reset-save" class="btn-base btn-alert">RESET SAVE DATA</button>
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
@@ -931,6 +935,7 @@
         const UNLOCKED_V2_KEY = 'cs_unlocked_v2';
         let totalCores = 0;
         const CORES_KEY = 'cs_total_cores';
+        let _resetConfirmPending = false, _resetConfirmTimer = null;
         let stageDataArray = null;
         let isBridgeStorageAvailable = false;
         let editorTestMode = false;
@@ -2425,6 +2430,29 @@
 
         function showConfigMenu() { document.getElementById('main-menu').style.display='none'; document.getElementById('config-menu').style.display='flex'; }
 
+        async function resetSaveData() {
+            const platform = window.__PLATFORM || 'itch';
+            // 1. Clear localStorage (all platforms)
+            [SAVE_KEY, UNLOCKED_V2_KEY, CORES_KEY,
+             'cs_first_run_v1','cs_rated','cs_home_added'].forEach(k => localStorage.removeItem(k));
+            for (let i = 1; i <= 300; i++) {
+                localStorage.removeItem('cs_stage_cleared_' + i);
+                localStorage.removeItem('cs_stage_best_' + i);
+            }
+            // 2. Reset bridge storage for Playgama (server-side)
+            if (platform === 'playgama' && typeof bridge !== 'undefined' && bridge.storage) {
+                try {
+                    await bridge.storage.set(SAVE_KEY, '1');
+                    await bridge.storage.set(UNLOCKED_V2_KEY, JSON.stringify([1]));
+                    await bridge.storage.set(CORES_KEY, '0');
+                } catch(e) { console.warn('[reset] bridge storage error:', e); }
+            }
+            // 3. Reset in-memory state
+            maxUnlockedStage = 1;
+            unlockedStagesSet = new Set([1]);
+            totalCores = 0;
+        }
+
         async function startCampaign() { isCampaignMode = true; const savedStage = await loadProgress(); currentStage = (savedStage >= 1 && savedStage <= 300) ? savedStage : 1; launchGame(); }
         function startCustomGame() {
             isCampaignMode = false;
@@ -2491,7 +2519,40 @@
             document.getElementById('dev-settings-btn').addEventListener('click', showConfigMenu);
             document.getElementById('btn-select-stage').addEventListener('click', openStageSelect);
 
-            document.getElementById('btn-back-menu').addEventListener('click', () => { stopBgmTest(); document.getElementById('config-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; });
+            document.getElementById('btn-back-menu').addEventListener('click', () => {
+                stopBgmTest();
+                // Cancel any pending reset confirm
+                if (_resetConfirmTimer) { clearTimeout(_resetConfirmTimer); _resetConfirmTimer = null; }
+                _resetConfirmPending = false;
+                const rb = document.getElementById('btn-reset-save');
+                if (rb) { rb.textContent = 'RESET SAVE DATA'; rb.disabled = false; rb.classList.remove('reset-confirm'); }
+                document.getElementById('config-menu').style.display='none';
+                // Return to stage select title screen
+                document.getElementById('title-content').style.display='none';
+                document.getElementById('btn-help-toggle').style.display='none';
+                document.getElementById('ss-overlay').style.display='block';
+                stageSelect.showTitle();
+            });
+            // RESET SAVE DATA — 2-click confirm
+            document.getElementById('btn-reset-save').addEventListener('click', async () => {
+                const btn = document.getElementById('btn-reset-save');
+                if (!_resetConfirmPending) {
+                    _resetConfirmPending = true;
+                    btn.textContent = '⚠ TAP AGAIN TO CONFIRM';
+                    btn.classList.add('reset-confirm');
+                    _resetConfirmTimer = setTimeout(() => {
+                        _resetConfirmPending = false;
+                        btn.textContent = 'RESET SAVE DATA';
+                        btn.classList.remove('reset-confirm');
+                    }, 3000);
+                } else {
+                    clearTimeout(_resetConfirmTimer); _resetConfirmTimer = null; _resetConfirmPending = false;
+                    btn.textContent = 'RESETTING...'; btn.disabled = true;
+                    await resetSaveData();
+                    btn.textContent = '✓ RESET COMPLETE'; btn.classList.remove('reset-confirm');
+                    setTimeout(() => { btn.textContent = 'RESET SAVE DATA'; btn.disabled = false; }, 2000);
+                }
+            });
 
             document.getElementById('btn-bgm-ambient').addEventListener('click', () => playBgmTest('ambient'));
             document.getElementById('btn-bgm-edm').addEventListener('click', () => playBgmTest('edm'));
