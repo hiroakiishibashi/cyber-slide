@@ -678,7 +678,7 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.9</div>
+            <div id="title-version" style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.9</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -2419,7 +2419,7 @@
             document.getElementById('title-content').style.display = 'flex';
             document.getElementById('btn-help-toggle').style.display = 'flex';
             document.getElementById('main-menu').style.display='flex';
-            document.getElementById('config-menu').style.display='none';
+            hideConfigMenu(); // also restores h1/subtitle/version if they were hidden
 
             const saved = await loadProgress();
             const diff = calculateStageDifficulty(saved); const visuals = generateVisuals(saved); applyVisuals(visuals);
@@ -2428,7 +2428,27 @@
             initGameBoard(false, true);
         }
 
-        function showConfigMenu() { document.getElementById('main-menu').style.display='none'; document.getElementById('config-menu').style.display='flex'; }
+        function showConfigMenu() {
+            document.getElementById('main-menu').style.display='none';
+            document.getElementById('config-menu').style.display='flex';
+            // Hide non-debug title decorations to make room
+            const h1 = document.querySelector('#title-content h1');
+            const sub = document.querySelector('#title-content .title-subtitle');
+            const ver = document.getElementById('title-version');
+            if (h1) h1.style.display = 'none';
+            if (sub) sub.style.display = 'none';
+            if (ver) ver.style.display = 'none';
+        }
+        function hideConfigMenu() {
+            document.getElementById('config-menu').style.display='none';
+            // Restore title decorations
+            const h1 = document.querySelector('#title-content h1');
+            const sub = document.querySelector('#title-content .title-subtitle');
+            const ver = document.getElementById('title-version');
+            if (h1) h1.style.display = '';
+            if (sub) sub.style.display = '';
+            if (ver) ver.style.display = '';
+        }
 
         async function resetSaveData() {
             const platform = window.__PLATFORM || 'itch';
@@ -2526,7 +2546,7 @@
                 _resetConfirmPending = false;
                 const rb = document.getElementById('btn-reset-save');
                 if (rb) { rb.textContent = 'RESET SAVE DATA'; rb.disabled = false; rb.classList.remove('reset-confirm'); }
-                document.getElementById('config-menu').style.display='none';
+                hideConfigMenu();
                 // Return to stage select title screen
                 document.getElementById('title-content').style.display='none';
                 document.getElementById('btn-help-toggle').style.display='none';
@@ -2549,6 +2569,8 @@
                     clearTimeout(_resetConfirmTimer); _resetConfirmTimer = null; _resetConfirmPending = false;
                     btn.textContent = 'RESETTING...'; btn.disabled = true;
                     await resetSaveData();
+                    // Immediately sync stage select CORE display
+                    stageSelect.syncUnlockedStage(maxUnlockedStage, totalCores);
                     btn.textContent = '✓ RESET COMPLETE'; btn.classList.remove('reset-confirm');
                     setTimeout(() => { btn.textContent = 'RESET SAVE DATA'; btn.disabled = false; }, 2000);
                 }
