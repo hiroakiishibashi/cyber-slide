@@ -704,7 +704,7 @@
     
     <div id="game-ui">
         <button id="btn-back-title" class="btn-base" style="position:absolute; top:14px; left:16px; width:auto; padding:6px 18px; font-size:10px; letter-spacing:2px; pointer-events:auto; z-index:10;">EXIT</button>
-        <button id="game-sound-btn" class="ss-bgm-toggle" style="position:absolute; top:14px; right:16px; pointer-events:auto; z-index:10;">SOUND ON</button>
+        <button id="game-sound-btn" class="ss-bgm-toggle" style="position:absolute; top:14px; right:16px; pointer-events:auto; z-index:10;">SOUND OFF</button>
         <div id="ui-top-bar">
             <div class="hud-group">
                 <span class="hud-label">STAGE</span>
@@ -731,7 +731,7 @@
         <div id="stage-banner"><h2>STAGE 1</h2><p>START</p></div>
 
         <div id="ui-bottom-bar">
-            <button id="btn-reset" class="ss-bgm-toggle" style="pointer-events:auto;">REBOOT</button>
+            <button id="btn-reset" class="btn-base" style="pointer-events:auto; width:auto; padding:6px 18px; font-size:10px; letter-spacing:2px;">REBOOT</button>
             <div class="hud-group right">
                  <span class="hud-label" style="text-align:right;">NEXT WAVE</span>
                  <div id="next-queue-container">
@@ -793,7 +793,7 @@
         <div id="ss-fade-overlay"></div>
         <div id="ss-canvas-container"></div>
         <!-- Single shared BGM/SE toggle — always visible top-right -->
-        <button id="ss-btn-bgm" class="ss-bgm-toggle">SOUND ON</button>
+        <button id="ss-btn-bgm" class="ss-bgm-toggle">SOUND OFF</button>
         <div id="ss-title-layer">
             <div class="ss-title-logo">CYBER SLIDE</div>
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
@@ -1192,8 +1192,8 @@
                 if (!bgmInterval) startBGM();
             }
             if (window._ss_setMuted) window._ss_setMuted(isSoundMuted);
-            // Button label shows current state: "SOUND ON" = sound is on, "SOUND OFF" = sound is off
-            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'SOUND OFF':'SOUND ON');
+            // Button label = action on click: SOUND OFF = currently on (click to turn off), SOUND ON = currently off (click to turn on)
+            document.querySelectorAll('.ss-bgm-toggle').forEach(el=>el.innerText=isSoundMuted?'SOUND ON':'SOUND OFF');
         }
 
         function clearAllTimeouts() { timeouts.forEach(t => clearTimeout(t)); timeouts = []; if(animationFrameId) cancelAnimationFrame(animationFrameId); }
@@ -1230,7 +1230,7 @@
         function updateNextUI() {
             fillSpawnQueue(); const currentContainer = document.getElementById('next-group-current'); const futureContainer = document.getElementById('next-group-future');
             currentContainer.innerHTML = ''; futureContainer.innerHTML = '';
-            const currentBatch = nextSpawnQueue.slice(0, SPAWN_COUNT); const futureBatch = nextSpawnQueue.slice(SPAWN_COUNT, SPAWN_COUNT + 10);
+            const currentBatch = nextSpawnQueue.slice(0, SPAWN_COUNT); const futureBatch = nextSpawnQueue.slice(SPAWN_COUNT, SPAWN_COUNT + 5);
             currentBatch.forEach(item => { const d = document.createElement('div'); d.className = 'next-block large'; if(item.type === 'special') d.classList.add('special'); if(item.type === 'obstacle') d.classList.add('obstacle'); if(item.type !== 'obstacle') d.style.backgroundColor = '#' + new THREE.Color(item.colorHex).getHexString(); currentContainer.appendChild(d); });
             futureBatch.forEach(item => { const d = document.createElement('div'); d.className = 'next-block small'; if(item.type === 'special') d.classList.add('special'); if(item.type === 'obstacle') d.classList.add('obstacle'); if(item.type !== 'obstacle') d.style.backgroundColor = '#' + new THREE.Color(item.colorHex).getHexString(); futureContainer.appendChild(d); });
         }
