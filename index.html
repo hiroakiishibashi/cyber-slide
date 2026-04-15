@@ -1387,9 +1387,10 @@
         document.addEventListener('touchstart', ensureAudioContext, {passive: true}); document.addEventListener('mousedown', ensureAudioContext); document.addEventListener('keydown', ensureAudioContext);
         function speak(text) { if(!window.speechSynthesis || isSoundMuted || isAdPlaying) return; const u = new SpeechSynthesisUtterance(text); u.volume = VOICE_VOLUME; u.rate = 1.1; u.pitch = 1.0; const v = availableVoices.find(voice => voice.lang === 'en-US'); if(v) u.voice = v; window.speechSynthesis.speak(u); }
         function updateTiltSound(mag) { if (!audioCtx || !tiltGain) return; const v=Math.min(mag*0.4,0.1); const f=60+mag*800; tiltGain.gain.setTargetAtTime(v,audioCtx.currentTime,0.05); tiltFilter.frequency.setTargetAtTime(f,audioCtx.currentTime,0.05); }
-        // BGM removed — stubs keep callers safe
-        async function startBGM() {}
-        function stopBGM() {}
+        // BGM — routes to BGM Test Engine
+        async function startBGM() { playBgmTest('edm'); }
+        function stopBGM() { stopBgmTest(); }
+        function startAmbientBGM() { if (_bgmTestActive !== 'ambient') playBgmTest('ambient'); }
 
         // ===== BGM TEST ENGINE =====
         let _bgmTestTimer = null;
@@ -2406,7 +2407,7 @@
         async function showStartScreen() {
             if (__cgSdk) __cgSdk.game.gameplayStop();
             if (_gameplayMessageSent && window.__PLATFORM === 'playgama' && typeof bridge !== 'undefined') { bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent = false; }
-            gameActive=false; stopBGM();
+            gameActive=false; stopBGM(); startAmbientBGM();
             document.getElementById('ss-overlay').style.display='none';
             document.getElementById('game-ui').style.display='none';
             setCinematicGlass(true, true);
@@ -2574,6 +2575,7 @@
             document.getElementById('btn-help-toggle').style.display = 'none';
             document.getElementById('ss-overlay').style.display = 'block';
             stageSelect.syncUnlockedStage(maxUnlockedStage, totalCores);
+            startAmbientBGM();
             stageSelect.show();
         }
 
@@ -3116,7 +3118,7 @@
                 showTitle(){
                     // Show stage select in TITLE state: blurred starfield + title layer
                     ssActive=true;
-                    _ensureAudio();
+                    _ensureAudio(); startAmbientBGM();
                     if(_bgmGain&&_audioCtx)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,1.0);
                     _fadeOvl.style.transition='none'; _fadeOvl.style.opacity='0';
                     requestAnimationFrame(()=>{ _fadeOvl.style.transition='opacity 1s ease-in-out'; });
@@ -3129,7 +3131,7 @@
                 },
 
                 show(){
-                    ssActive=true;_ensureAudio();
+                    ssActive=true;_ensureAudio(); startAmbientBGM();
                     if(_bgmGain)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,0.5);
                     _fadeOvl.style.opacity='0';
                     _titleLayer.style.opacity='0';_titleLayer.style.pointerEvents='none';
@@ -3142,7 +3144,7 @@
                 },
 
                 returnFromGame(isClear, gameMaxUnlocked){
-                    ssActive=true; _ensureAudio();
+                    ssActive=true; _ensureAudio(); startAmbientBGM();
                     if(_bgmGain)_bgmGain.gain.setTargetAtTime(_soundOn?0.4:0,_audioCtx.currentTime,1.0);
                     _flare.visible=true; _pMesh.visible=true;
                     const el=document.getElementById('ss-core-count');if(el)el.innerText=totalCores;
