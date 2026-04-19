@@ -678,7 +678,7 @@
                 <button id="btn-start-custom" class="btn-base">PLAY CUSTOM</button>
                 <button id="btn-back-menu" class="btn-base btn-alert">BACK</button>
             </div>
-            <div id="title-version" style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.9</div>
+            <div id="title-version" style="font-size:10px; opacity:0.5; margin-top:20px;">Production v27.9e</div>
         </div>
         <div id="dev-settings-btn" style="position:absolute; bottom:10px; right:14px; font-size:9px; opacity:0.2; cursor:pointer; letter-spacing:1px; font-family:'Orbitron',sans-serif; color:#fff; user-select:none;">SETTINGS</div>
     </div>
@@ -823,7 +823,7 @@
             <div class="ss-title-tagline">SLIDE · MATCH · CLEAR</div>
             <button id="ss-btn-title-start">START</button>
             <div class="ss-title-footer">
-                <span class="ss-title-version">Production v27.9</span>
+                <span class="ss-title-version">Production v27.9e</span>
                 <button class="ss-title-settings-btn" id="ss-btn-title-settings">SETTINGS</button>
             </div>
         </div>
@@ -2175,6 +2175,9 @@
             const overlay = document.getElementById('game-over-overlay');
             overlay.style.display = 'none';
             if (isCampaignMode) {
+                if(_gameplayMessageSent && window.__PLATFORM==='playgama' && typeof bridge!=='undefined') {
+                    bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent=false;
+                }
                 const _gfo=document.getElementById('game-fade-overlay');
                 if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
                 setTimeout(()=>{
@@ -2269,9 +2272,11 @@
             const _pb=parseInt(localStorage.getItem(_bk))||0;
             const isNewHighScore = currentScore > _pb;
             if(isNewHighScore) localStorage.setItem(_bk, currentScore);
-            if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
-                bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
-            }
+            try {
+                if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
+                    bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
+                }
+            } catch(e) {}
 
             // First clear detection (separate key, independent of score)
             const _ck='cs_stage_cleared_'+currentStage;
@@ -2305,7 +2310,7 @@
             }
 
             setCinematicGlass(true);
-            await new Promise(r => safeTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 1000));
 
             msg.style.display='flex'; msg.style.opacity = 1;
             setTimeout(()=> { txt.style.opacity=1; txt.style.transform='translateY(0)'; }, 300);
@@ -2343,6 +2348,12 @@
             if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
             await new Promise(r=>setTimeout(r,900));
             isClearingStage=false; isProcessing=false;
+            // Auto-unlock next stage on clear (campaign mode)
+            if(isCampaignMode && currentStage < 300) saveUnlock(currentStage + 1);
+            // Notify Playgama that gameplay has ended
+            if(_gameplayMessageSent && window.__PLATFORM==='playgama' && typeof bridge!=='undefined') {
+                bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent=false;
+            }
             document.getElementById('game-ui').style.display='none';
             document.getElementById('ss-overlay').style.display='block';
             if(_gfo){setTimeout(()=>{_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='0';},50);}
@@ -2776,7 +2787,10 @@
                 if (platform === 'playgama' && typeof bridge !== 'undefined') {
                     try {
                         if (bridge.leaderboards && bridge.leaderboards.isSupported) {
-                            const entries = await bridge.leaderboards.getEntries('highscore', { withMe: true, around: 2 });
+                            const entries = await Promise.race([
+                                bridge.leaderboards.getEntries('highscore', { withMe: true, around: 2 }),
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('lb_timeout')), 5000))
+                            ]);
                             if (entries && entries.length > 0) {
                                 return entries.map(e => ({ rank: e.rank, score: e.score, isMe: !!(e.isCurrentPlayer||e.isMe), name: e.name||'Player' }));
                             }
