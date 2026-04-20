@@ -4,6 +4,30 @@
 
 ---
 
+## ✅ v27.9e — 2026-04-20
+
+**Status: Submitted (Playgama ✅)**
+
+### Changes (v27.9d → v27.9e) — Playgama stage clear freeze fix
+
+**Stage Clear Freeze Fix**
+- `playStageClear`: replaced `safeTimeout` → `setTimeout` for the 1s wait — session guard was causing the promise to never resolve if `currentSessionId` had changed
+- `playStageClear`: wrapped `bridge.leaderboards.setScore()` in try-catch — synchronous SDK exceptions were crashing the async function silently
+- `playStageClear`: replaced `safeTimeout` with `setTimeout` for reliability
+
+**Auto-Unlock Next Stage on Clear**
+- `playStageClear`: `saveUnlock(currentStage + 1)` is now called automatically on campaign stage clear
+- Players no longer need to spend CORE to unlock the immediately-next stage — clearing a stage opens the next one directly
+
+**Playgama Analytics**
+- `playStageClear`: `gameplay_stopped` message now sent to bridge when transitioning to stage select after clear
+- `returnToTitleFromGameover`: `gameplay_stopped` also sent on game-over exit to stage select
+
+**Leaderboard Timeout**
+- `_fetchRankings`: added 5s `Promise.race` timeout on `bridge.leaderboards.getEntries()` — prevents `_updateUI` from hanging indefinitely if the leaderboard API doesn't respond
+
+---
+
 ## ✅ v27.9d — 2026-04-15
 
 **Status: Submitted (Playgama ✅)**
