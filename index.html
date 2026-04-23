@@ -1075,7 +1075,7 @@
             const arr=[...unlockedStagesSet].sort((a,b)=>a-b);
             const val=JSON.stringify(arr);
             if(typeof bridge!=='undefined'&&bridge.storage){
-                bridge.storage.set(UNLOCKED_V2_KEY,val).catch(()=>localStorage.setItem(UNLOCKED_V2_KEY,val));
+                await bridge.storage.set(UNLOCKED_V2_KEY,val).catch(()=>localStorage.setItem(UNLOCKED_V2_KEY,val));
             }else{
                 localStorage.setItem(UNLOCKED_V2_KEY,val);
             }
@@ -1085,7 +1085,7 @@
         async function saveTotalCores() {
             const val = String(totalCores);
             if(typeof bridge !== 'undefined' && bridge.storage) {
-                bridge.storage.set(CORES_KEY, val).catch(()=>localStorage.setItem(CORES_KEY, val));
+                await bridge.storage.set(CORES_KEY, val).catch(()=>localStorage.setItem(CORES_KEY, val));
             } else {
                 localStorage.setItem(CORES_KEY, val);
             }
@@ -1102,10 +1102,10 @@
             totalCores = parseInt(val) || 0;
         }
 
-        function saveUnlock(stageNumber) {
+        async function saveUnlock(stageNumber) {
             // stageNumber is 1-based
             unlockedStagesSet.add(stageNumber);
-            saveUnlockedStages();
+            await saveUnlockedStages();
             maxUnlockedStage=Math.max(1,...unlockedStagesSet);
         }
 
@@ -2291,8 +2291,10 @@
 
             if(isCampaignMode) {
                 totalCores += totalEarned;
-                saveTotalCores();
+                await saveTotalCores();
                 trySocialPrompt(currentStage);
+                // Unlock next stage NOW — before any ad or page transition risk
+                if(currentStage < 300) await saveUnlock(currentStage + 1);
             }
 
             txt.innerText = 'STAGE CLEAR';
@@ -2348,8 +2350,6 @@
             if(_gfo){_gfo.style.transition='opacity 0.8s ease-in-out';_gfo.style.opacity='1';}
             await new Promise(r=>setTimeout(r,900));
             isClearingStage=false; isProcessing=false;
-            // Auto-unlock next stage on clear (campaign mode)
-            if(isCampaignMode && currentStage < 300) saveUnlock(currentStage + 1);
             // Notify Playgama that gameplay has ended
             if(_gameplayMessageSent && window.__PLATFORM==='playgama' && typeof bridge!=='undefined') {
                 bridge.platform.sendMessage('gameplay_stopped'); _gameplayMessageSent=false;
