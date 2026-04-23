@@ -2272,11 +2272,6 @@
             const _pb=parseInt(localStorage.getItem(_bk))||0;
             const isNewHighScore = currentScore > _pb;
             if(isNewHighScore) localStorage.setItem(_bk, currentScore);
-            try {
-                if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
-                    bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
-                }
-            } catch(e) {}
 
             // First clear detection (separate key, independent of score)
             const _ck='cs_stage_cleared_'+currentStage;
@@ -2296,6 +2291,13 @@
                 // Unlock next stage NOW — before any ad or page transition risk
                 if(currentStage < 300) await saveUnlock(currentStage + 1);
             }
+
+            // Submit leaderboard score AFTER storage saves complete (avoid bridge operation conflicts)
+            try {
+                if(window.__PLATFORM==='playgama'&&typeof bridge!=='undefined'&&bridge.leaderboards&&bridge.leaderboards.isSupported&&bridge.leaderboards.isSetScoreSupported){
+                    bridge.leaderboards.setScore('highscore',currentScore).catch(()=>{});
+                }
+            } catch(e) {}
 
             txt.innerText = 'STAGE CLEAR';
             sub.style.display = 'none';
